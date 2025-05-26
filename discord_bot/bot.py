@@ -38,10 +38,26 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 # --- Load and Save Functions for Roles ---
 def load_roles():
-    if os.path.exists(ROLES_FILE):
+    try:
+        # If the path exists but is a directory, that's an error
+        if os.path.exists(ROLES_FILE):
+            if os.path.isdir(ROLES_FILE):
+                print(f"[❌] ERROR: {ROLES_FILE} is a directory, not a file.")
+                return {}
+        else:
+            # Auto-create an empty JSON file
+            with open(ROLES_FILE, 'w') as f:
+                json.dump({}, f)
+                print(f"[📁] Created new roles file at {ROLES_FILE}")
+        
+        # Now safely load the roles
         with open(ROLES_FILE, 'r') as f:
             return json.load(f)
-    return {}
+
+    except Exception as e:
+        print(f"[💥] Failed to load roles file: {e}")
+        return {}
+
 
 def save_roles(data):
     with open(ROLES_FILE, 'w') as f:
