@@ -26,7 +26,7 @@ FORGIVENESS_PHRASES = [
 ]
 UNDO_PHRASES = ['undo', 'never mind']
 
-ROLES_FILE = 'roles.json'
+ROLES_FILE = '/data/roles.json'
 
 intents = discord.Intents.default()
 intents.messages = True
