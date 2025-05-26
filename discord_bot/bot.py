@@ -90,6 +90,7 @@ async def on_message(message):
                     roles_to_remove = [r for r in member.roles if r.name != "@everyone"]
                     original_roles[str(member.id)] = [r.id for r in roles_to_remove]
                     save_roles(original_roles)
+                    print(f"[📦] Current stored roles: {json.dumps(original_roles, indent=2)}")
 
                     if roles_to_remove:
                         await member.remove_roles(*roles_to_remove)
