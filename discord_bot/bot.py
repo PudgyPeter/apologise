@@ -26,10 +26,11 @@ FORGIVENESS_PHRASES = [
 ]
 UNDO_PHRASES = ['undo', 'never mind']
 
-if os.getenv("RAILWAY_ENVIRONMENT"):
-    ROLES_FILE = '/app/data/roles.json'  # For Railway
-else:
-    ROLES_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), 'data', 'roles.json'))
+DATA_DIR = os.path.join(os.getcwd(), "data")
+ROLES_FILE = os.path.join(DATA_DIR, "roles.json")
+
+# Make sure the data directory exists
+os.makedirs(DATA_DIR, exist_ok=True)
 
 intents = discord.Intents.default()
 intents.messages = True
