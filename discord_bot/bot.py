@@ -26,8 +26,10 @@ FORGIVENESS_PHRASES = [
 ]
 UNDO_PHRASES = ['undo', 'never mind']
 
-ROLES_FILE = os.path.join(os.path.dirname(__file__), '..', 'data', 'roles.json')
-ROLES_FILE = os.path.abspath(ROLES_FILE)  # resolve relative path to absolute
+if os.getenv("RAILWAY_ENVIRONMENT"):
+    ROLES_FILE = '/app/data/roles.json'  # For Railway
+else:
+    ROLES_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), 'data', 'roles.json'))
 
 intents = discord.Intents.default()
 intents.messages = True
