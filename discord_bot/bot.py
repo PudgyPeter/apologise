@@ -2,7 +2,8 @@ import discord
 from discord.ext import commands
 
 # Configuration
-TOKEN = 'MTM3NjA5NTQyOTA5OTI1Nzg1Ng.GiHnr3.ycpIIs3Nh4jyROeAzdqrZgAIoW3OHO0hdnt3tU'  # Replace with your bot token
+import os
+TOKEN = os.getenv("TOKEN")
 TRIGGER_PHRASE = 'stop arguing in general'
 TRIGGER_USER_ID = [
     530402087004143626,
