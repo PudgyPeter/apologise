@@ -17,7 +17,7 @@ USERS_TO_STRIP = [
     799762393545965568
 ]
 
-ROLE_TO_GIVE = 1157604959492251679  # Role to assign after stripping
+ROLE_TO_GIVE = 1376619581660991518  # Role to assign after stripping
 FORGIVENESS_PHRASES = [
     "i'm sorry",
     "I'm sorry",
