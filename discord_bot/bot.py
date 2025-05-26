@@ -1,8 +1,8 @@
+import os
 import discord
 from discord.ext import commands
 
 # Configuration
-import os
 TOKEN = os.getenv("TOKEN")
 TRIGGER_PHRASE = 'stop arguing in general'
 TRIGGER_USER_ID = [
