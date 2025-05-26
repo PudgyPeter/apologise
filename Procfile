@@ -1,1 +1,1 @@
-start: python bot.py
+start: python Documents\GitHub\apologise\discord_bot\bot.py
