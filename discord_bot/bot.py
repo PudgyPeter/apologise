@@ -1,30 +1,25 @@
 import discord
 from discord.ext import commands
-import json
 import os
+import re
+from difflib import SequenceMatcher
 
 # --- Configuration ---
 TOKEN = os.getenv("TOKEN")
 
-TRIGGER_PHRASE = 'GUYS STOP FIGHTING!!!'
-TRIGGER_USER_IDS = [530402087004143626, 1060424009193377852]
-USERS_TO_STRIP = [402289705531736076, 499881568991576064]
-ROLE_TO_GIVE = 1376619581660991518
+LOG_CHANNEL_ID = 130000000000000000   # Replace with your log channel ID
+ALERT_CHANNEL_ID = 130000000000000001 # Replace with your alert channel ID
 
-FORGIVENESS_PHRASES = [
-    "i'm sorry", "sorry", "my bad", "i apologise", "i apologize",
-    "Sorry", "SORRY", "I'm Sorry", "I'm sorry", "im sorry", "Im sorry"
+# --- Alert name patterns ---
+NAME_PATTERNS = [
+    r"(?i)\bj+o+r+d+a+n+\b",
+    r"(?i)\bp+u+d+g+e+\b",
+    r"(?i)\bp+u+d+g+y+\b",
 ]
-UNDO_PHRASES = ['undo', 'never mind']
 
-# Log channel ID (replace with your actual channel)
-LOG_CHANNEL_ID = 1430766113721028658  
+FUZZY_NAMES = ["jordan", "pudge", "pudgy"]
 
-DATA_DIR = os.path.join(os.getcwd(), "data")
-ROLES_FILE = os.path.join(DATA_DIR, "roles.json")
-
-os.makedirs(DATA_DIR, exist_ok=True)
-
+# --- Intents ---
 intents = discord.Intents.default()
 intents.messages = True
 intents.guilds = True
@@ -33,161 +28,146 @@ intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# --- Role persistence helpers ---
-def load_roles():
-    try:
-        if os.path.exists(ROLES_FILE):
-            if os.path.isdir(ROLES_FILE):
-                print(f"[❌] ERROR: {ROLES_FILE} is a directory, not a file.")
-                return {}
-        else:
-            with open(ROLES_FILE, 'w') as f:
-                json.dump({}, f)
-                print(f"[📁] Created new roles file at {ROLES_FILE}")
 
-        with open(ROLES_FILE, 'r') as f:
-            return json.load(f)
-    except Exception as e:
-        print(f"[💥] Failed to load roles file: {e}")
-        return {}
+# --- Helpers ---
+def regex_match(text: str, patterns: list) -> str | None:
+    for pattern in patterns:
+        if re.search(pattern, text):
+            return pattern
+    return None
 
-def save_roles(data):
-    with open(ROLES_FILE, 'w') as f:
-        json.dump(data, f)
 
-original_roles = load_roles()
+def fuzzy_match(text: str, keywords: list, threshold: float = 0.8) -> str | None:
+    text = re.sub(r"[^a-z0-9]", "", text.lower())
+    for word in text.split():
+        for key in keywords:
+            ratio = SequenceMatcher(None, word, key).ratio()
+            if ratio >= threshold:
+                return key
+    return None
 
-# --- Utility for sending formatted log entries ---
-async def send_log(bot, content: str):
-    """Safely send logs to the configured channel."""
+
+async def create_message_embed(message: discord.Message, color: discord.Color | None = None) -> discord.Embed:
+    """Create an embed mimicking Discord’s native message appearance."""
+    color = color or discord.Color.dark_gray()
+    embed = discord.Embed(
+        description=message.content or "(no text)",
+        timestamp=message.created_at,
+        color=color
+    )
+    embed.set_author(
+        name=f"{message.author.display_name} ({message.author.name}#{message.author.discriminator})",
+        icon_url=message.author.avatar.url if message.author.avatar else discord.Embed.Empty
+    )
+    embed.set_footer(text=f"#{message.channel.name}")
+    if message.attachments:
+        # Show first attachment inline if it's an image
+        for attachment in message.attachments:
+            if attachment.content_type and "image" in attachment.content_type:
+                embed.set_image(url=attachment.url)
+                break
+        # List all attachments in embed body
+        urls = "\n".join(a.url for a in message.attachments)
+        embed.add_field(name="📎 Attachments", value=urls, inline=False)
+    return embed
+
+
+async def send_log(message: discord.Message):
+    """Send message logs to log channel as embed."""
     try:
         log_channel = bot.get_channel(LOG_CHANNEL_ID)
         if log_channel:
-            await log_channel.send(content)
+            color = getattr(message.author.top_role, "color", discord.Color.dark_gray())
+            embed = await create_message_embed(message, color=color)
+            await log_channel.send(embed=embed)
     except Exception as e:
         print(f"[💥] Logging error: {e}")
 
-# --- Bot events ---
+
+async def send_alert(message: discord.Message, detected: str):
+    """Send alerts to the alert channel."""
+    try:
+        alert_channel = bot.get_channel(ALERT_CHANNEL_ID)
+        if alert_channel:
+            embed = await create_message_embed(message, color=discord.Color.red())
+            embed.title = "🚨 Name Alert Detected!"
+            embed.add_field(name="Detected Term", value=f"`{detected}`", inline=False)
+            embed.add_field(name="Jump to Message", value=f"[Click Here]({message.jump_url})", inline=False)
+            await alert_channel.send(embed=embed)
+    except Exception as e:
+        print(f"[💥] Alert error: {e}")
+
+
+# --- Events ---
 @bot.event
 async def on_ready():
-    print(f'[✅] Logged in as {bot.user} (ID: {bot.user.id})')
+    print(f"[✅] Logged in as {bot.user} (ID: {bot.user.id})")
+
 
 @bot.event
 async def on_message(message):
-    if message.author == bot.user or not message.guild:
+    if message.author.bot or not message.guild:
         return
 
-    msg = message.content.strip().lower()
-    author_id = str(message.author.id)
-    guild = message.guild
+    # Mirror messages
+    await send_log(message)
 
-    # --- Mirror all user messages ---
-    if not message.author.bot and message.channel.id != LOG_CHANNEL_ID:
-        display_name = message.author.display_name
-        full_name = f"{message.author.name}#{message.author.discriminator}"
-        log_entry = f"[#{message.channel.name}] **{display_name}** ({full_name}): {message.content}"
-        if message.attachments:
-            attachment_urls = "\n".join([a.url for a in message.attachments])
-            log_entry += f"\n📎 Attachments:\n{attachment_urls}"
-        await send_log(bot, log_entry)
+    # Detect names (regex + fuzzy)
+    msg_lower = message.content.lower()
+    detected = regex_match(msg_lower, NAME_PATTERNS)
+    if not detected:
+        detected = fuzzy_match(msg_lower, FUZZY_NAMES)
 
-    # --- Handle punishment trigger ---
-    if message.author.id in TRIGGER_USER_IDS and msg == TRIGGER_PHRASE:
-        print(f'[⚡] Trigger by {message.author}')
-        try:
-            async for member in guild.fetch_members(limit=None):
-                if member.id in USERS_TO_STRIP:
-                    roles_to_remove = [r for r in member.roles if r.name != "@everyone"]
-                    original_roles[str(member.id)] = [r.id for r in roles_to_remove]
-                    save_roles(original_roles)
-                    print(f"[📦] Current stored roles: {json.dumps(original_roles, indent=2)}")
-
-                    if roles_to_remove:
-                        await member.remove_roles(*roles_to_remove)
-                        print(f'[🧹] Removed roles from {member.display_name}')
-
-                    punishment_role = guild.get_role(ROLE_TO_GIVE)
-                    if punishment_role:
-                        await member.add_roles(punishment_role)
-                        print(f'[➕] Assigned punishment role to {member.display_name}')
-        except Exception as e:
-            print(f'[💥] Punishment error: {e}')
-
-    # --- Handle forgiveness ---
-    elif int(author_id) in USERS_TO_STRIP and msg in FORGIVENESS_PHRASES:
-        if author_id not in original_roles:
-            print(f'[ℹ️] No saved roles for {message.author}')
-        else:
-            try:
-                role_ids = original_roles[author_id]
-                roles = [guild.get_role(rid) for rid in role_ids if guild.get_role(rid)]
-                if roles:
-                    await message.author.add_roles(*roles)
-                    print(f'[🎉] Restored roles to {message.author.display_name}')
-                punishment_role = guild.get_role(ROLE_TO_GIVE)
-                if punishment_role:
-                    await message.author.remove_roles(punishment_role)
-                del original_roles[author_id]
-                save_roles(original_roles)
-            except Exception as e:
-                print(f'[💥] Restore error for {message.author}: {e}')
-
-    # --- Handle undo by trusted users ---
-    elif message.author.id in TRIGGER_USER_IDS and msg in UNDO_PHRASES:
-        try:
-            for user_id in USERS_TO_STRIP:
-                str_id = str(user_id)
-                member = guild.get_member(user_id)
-                if not member or str_id not in original_roles:
-                    continue
-
-                role_ids = original_roles[str_id]
-                roles = [guild.get_role(rid) for rid in role_ids if guild.get_role(rid)]
-                if roles:
-                    await member.add_roles(*roles)
-                    print(f'[↩️] Restored roles to {member.display_name}')
-                punishment_role = guild.get_role(ROLE_TO_GIVE)
-                if punishment_role:
-                    await member.remove_roles(punishment_role)
-                del original_roles[str_id]
-                save_roles(original_roles)
-        except Exception as e:
-            print(f'[💥] Undo error: {e}')
+    if detected:
+        await send_alert(message, detected)
 
     await bot.process_commands(message)
 
-# --- Log message edits ---
+
 @bot.event
 async def on_message_edit(before, after):
-    if before.author.bot or not before.guild or before.channel.id == LOG_CHANNEL_ID:
+    if before.author.bot or not before.guild or before.content == after.content:
         return
-
-    display_name = before.author.display_name
-    full_name = f"{before.author.name}#{before.author.discriminator}"
-    log_entry = (
-        f"✏️ **Message Edited** by **{display_name}** ({full_name}) in "
-        f"[#{before.channel.name}]\n"
-        f"**Before:** {before.content}\n"
-        f"**After:** {after.content}"
+    log_channel = bot.get_channel(LOG_CHANNEL_ID)
+    if not log_channel:
+        return
+    embed = discord.Embed(
+        title="✏️ Message Edited",
+        color=discord.Color.blurple(),
+        timestamp=after.edited_at or after.created_at
     )
-    await send_log(bot, log_entry)
+    embed.set_author(
+        name=f"{before.author.display_name} ({before.author.name}#{before.author.discriminator})",
+        icon_url=before.author.avatar.url if before.author.avatar else discord.Embed.Empty
+    )
+    embed.add_field(name="Before", value=before.content or "(no text)", inline=False)
+    embed.add_field(name="After", value=after.content or "(no text)", inline=False)
+    embed.set_footer(text=f"#{before.channel.name}")
+    await log_channel.send(embed=embed)
 
-# --- Log message deletions ---
+
 @bot.event
 async def on_message_delete(message):
-    if message.author.bot or not message.guild or message.channel.id == LOG_CHANNEL_ID:
+    if message.author.bot or not message.guild:
         return
-
-    display_name = message.author.display_name
-    full_name = f"{message.author.name}#{message.author.discriminator}"
-    log_entry = (
-        f"🗑️ **Message Deleted** by **{display_name}** ({full_name}) in "
-        f"[#{message.channel.name}]\n"
-        f"**Content:** {message.content or '(no text)'}"
+    log_channel = bot.get_channel(LOG_CHANNEL_ID)
+    if not log_channel:
+        return
+    embed = discord.Embed(
+        title="🗑️ Message Deleted",
+        description=message.content or "(no text)",
+        color=discord.Color.orange(),
+        timestamp=message.created_at
     )
+    embed.set_author(
+        name=f"{message.author.display_name} ({message.author.name}#{message.author.discriminator})",
+        icon_url=message.author.avatar.url if message.author.avatar else discord.Embed.Empty
+    )
+    embed.set_footer(text=f"#{message.channel.name}")
     if message.attachments:
-        attachment_urls = "\n".join([a.url for a in message.attachments])
-        log_entry += f"\n📎 Attachments:\n{attachment_urls}"
-    await send_log(bot, log_entry)
+        urls = "\n".join(a.url for a in message.attachments)
+        embed.add_field(name="📎 Attachments", value=urls, inline=False)
+    await log_channel.send(embed=embed)
+
 
 bot.run(TOKEN)
