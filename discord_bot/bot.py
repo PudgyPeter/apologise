@@ -12,24 +12,17 @@ USERS_TO_STRIP = [402289705531736076, 499881568991576064]
 ROLE_TO_GIVE = 1376619581660991518
 
 FORGIVENESS_PHRASES = [
-    "i'm sorry",
-    "sorry",
-    "my bad",
-    "i apologise",
-    "i apologize",
-    "Sorry",
-    "SORRY",
-    "I'm Sorry",
-    "I'm sorry",
-    "im sorry",
-    "Im sorry"
+    "i'm sorry", "sorry", "my bad", "i apologise", "i apologize",
+    "Sorry", "SORRY", "I'm Sorry", "I'm sorry", "im sorry", "Im sorry"
 ]
 UNDO_PHRASES = ['undo', 'never mind']
+
+# Log channel ID (replace with your actual channel)
+LOG_CHANNEL_ID = 1430766113721028658  
 
 DATA_DIR = os.path.join(os.getcwd(), "data")
 ROLES_FILE = os.path.join(DATA_DIR, "roles.json")
 
-# Make sure the data directory exists
 os.makedirs(DATA_DIR, exist_ok=True)
 
 intents = discord.Intents.default()
@@ -40,28 +33,23 @@ intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# --- Load and Save Functions for Roles ---
+# --- Role persistence helpers ---
 def load_roles():
     try:
-        # If the path exists but is a directory, that's an error
         if os.path.exists(ROLES_FILE):
             if os.path.isdir(ROLES_FILE):
                 print(f"[❌] ERROR: {ROLES_FILE} is a directory, not a file.")
                 return {}
         else:
-            # Auto-create an empty JSON file
             with open(ROLES_FILE, 'w') as f:
                 json.dump({}, f)
                 print(f"[📁] Created new roles file at {ROLES_FILE}")
-        
-        # Now safely load the roles
+
         with open(ROLES_FILE, 'r') as f:
             return json.load(f)
-
     except Exception as e:
         print(f"[💥] Failed to load roles file: {e}")
         return {}
-
 
 def save_roles(data):
     with open(ROLES_FILE, 'w') as f:
@@ -69,6 +57,17 @@ def save_roles(data):
 
 original_roles = load_roles()
 
+# --- Utility for sending formatted log entries ---
+async def send_log(bot, content: str):
+    """Safely send logs to the configured channel."""
+    try:
+        log_channel = bot.get_channel(LOG_CHANNEL_ID)
+        if log_channel:
+            await log_channel.send(content)
+    except Exception as e:
+        print(f"[💥] Logging error: {e}")
+
+# --- Bot events ---
 @bot.event
 async def on_ready():
     print(f'[✅] Logged in as {bot.user} (ID: {bot.user.id})')
@@ -82,7 +81,17 @@ async def on_message(message):
     author_id = str(message.author.id)
     guild = message.guild
 
-    # --- Handle Punishment Trigger ---
+    # --- Mirror all user messages ---
+    if not message.author.bot and message.channel.id != LOG_CHANNEL_ID:
+        display_name = message.author.display_name
+        full_name = f"{message.author.name}#{message.author.discriminator}"
+        log_entry = f"[#{message.channel.name}] **{display_name}** ({full_name}): {message.content}"
+        if message.attachments:
+            attachment_urls = "\n".join([a.url for a in message.attachments])
+            log_entry += f"\n📎 Attachments:\n{attachment_urls}"
+        await send_log(bot, log_entry)
+
+    # --- Handle punishment trigger ---
     if message.author.id in TRIGGER_USER_IDS and msg == TRIGGER_PHRASE:
         print(f'[⚡] Trigger by {message.author}')
         try:
@@ -104,7 +113,7 @@ async def on_message(message):
         except Exception as e:
             print(f'[💥] Punishment error: {e}')
 
-    # --- Handle Forgiveness by punished users ---
+    # --- Handle forgiveness ---
     elif int(author_id) in USERS_TO_STRIP and msg in FORGIVENESS_PHRASES:
         if author_id not in original_roles:
             print(f'[ℹ️] No saved roles for {message.author}')
@@ -123,7 +132,7 @@ async def on_message(message):
             except Exception as e:
                 print(f'[💥] Restore error for {message.author}: {e}')
 
-    # --- Handle Undo by trusted users ---
+    # --- Handle undo by trusted users ---
     elif message.author.id in TRIGGER_USER_IDS and msg in UNDO_PHRASES:
         try:
             for user_id in USERS_TO_STRIP:
@@ -146,5 +155,39 @@ async def on_message(message):
             print(f'[💥] Undo error: {e}')
 
     await bot.process_commands(message)
+
+# --- Log message edits ---
+@bot.event
+async def on_message_edit(before, after):
+    if before.author.bot or not before.guild or before.channel.id == LOG_CHANNEL_ID:
+        return
+
+    display_name = before.author.display_name
+    full_name = f"{before.author.name}#{before.author.discriminator}"
+    log_entry = (
+        f"✏️ **Message Edited** by **{display_name}** ({full_name}) in "
+        f"[#{before.channel.name}]\n"
+        f"**Before:** {before.content}\n"
+        f"**After:** {after.content}"
+    )
+    await send_log(bot, log_entry)
+
+# --- Log message deletions ---
+@bot.event
+async def on_message_delete(message):
+    if message.author.bot or not message.guild or message.channel.id == LOG_CHANNEL_ID:
+        return
+
+    display_name = message.author.display_name
+    full_name = f"{message.author.name}#{message.author.discriminator}"
+    log_entry = (
+        f"🗑️ **Message Deleted** by **{display_name}** ({full_name}) in "
+        f"[#{message.channel.name}]\n"
+        f"**Content:** {message.content or '(no text)'}"
+    )
+    if message.attachments:
+        attachment_urls = "\n".join([a.url for a in message.attachments])
+        log_entry += f"\n📎 Attachments:\n{attachment_urls}"
+    await send_log(bot, log_entry)
 
 bot.run(TOKEN)
