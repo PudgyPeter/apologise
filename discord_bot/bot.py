@@ -7,8 +7,8 @@ from difflib import SequenceMatcher
 # --- Configuration ---
 TOKEN = os.getenv("TOKEN")
 
-LOG_CHANNEL_ID = 130000000000000000   # Replace with your log channel ID
-ALERT_CHANNEL_ID = 130000000000000001 # Replace with your alert channel ID
+LOG_CHANNEL_ID = 1430766113721028658   # Replace with your log channel ID
+ALERT_CHANNEL_ID = 1431130781975187537 # Replace with your alert channel ID
 
 # --- Alert name patterns ---
 NAME_PATTERNS = [
