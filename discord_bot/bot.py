@@ -8,6 +8,8 @@ from datetime import datetime
 import pathlib
 import asyncio
 from discord.ui import Button, View
+import math
+from rapidfuzz import fuzz, process
 
 # --- CONFIGURATION ---
 TOKEN = os.getenv("TOKEN")
@@ -281,6 +283,64 @@ async def logs_list(ctx):
 
     await ctx.send(embed=embed, view=view)
 
+# --- LOG SEARCH ---
+@logs.command(name="search")
+async def logs_search(ctx, *, query: str):
+    log_path = get_daily_log_path()
+    logs_data = load_log(log_path)
+    
+    choices = [log["content"] for log in logs_data]
+    results_raw = process.extract(query, choices, scorer=fuzz.WRatio, limit=100)
+    results = [(logs_data[idx], score) for text, score, idx in results_raw if score > 50]
+
+    if not results:
+        await ctx.send("No results found.")
+        return
+
+    def build_embed(results_list, page=0, per_page=10):
+        embed = discord.Embed(title=f"Search results for '{query}'", color=discord.Color.blue())
+        start = page * per_page
+        end = start + per_page
+        for i, (log, score) in enumerate(results_list[start:end], start=start+1):
+            embed.add_field(
+                name=f"{i}. {log['author']} ({log['readable_time']})",
+                value=f"{log['content'][:1024]}",
+                inline=False
+            )
+        total_pages = math.ceil(len(results_list)/per_page)
+        embed.set_footer(text=f"Page {page+1}/{total_pages} | {len(results_list)} results found")
+        return embed
+
+    class Paginator(View):
+        def __init__(self, results_list, per_page=10):
+            super().__init__(timeout=180)
+            self.results = results_list
+            self.per_page = per_page
+            self.page = 0
+            self.total_pages = math.ceil(len(results_list)/per_page)
+
+        async def update_message(self, interaction):
+            embed = build_embed(self.results, self.page, self.per_page)
+            await interaction.response.edit_message(embed=embed, view=self)
+
+        @discord.ui.button(label="Previous", style=discord.ButtonStyle.secondary)
+        async def previous(self, button: Button, interaction: discord.Interaction):
+            if self.page > 0:
+                self.page -= 1
+                await self.update_message(interaction)
+
+        @discord.ui.button(label="Next", style=discord.ButtonStyle.secondary)
+        async def next(self, button: Button, interaction: discord.Interaction):
+            if self.page < self.total_pages - 1:
+                self.page += 1
+                await self.update_message(interaction)
+
+    async with ctx.typing():
+        embed = build_embed(results)
+        view = Paginator(results)
+        await ctx.send(embed=embed, view=view)
+
+# --- READY ---
 @bot.event
 async def on_ready():
     print(f"[✅] Logged in as {bot.user} (ID: {bot.user.id})")
