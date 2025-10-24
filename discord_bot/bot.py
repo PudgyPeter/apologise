@@ -186,9 +186,11 @@ async def on_message_delete(message):
         await log_channel.send(embed=embed)
 
 # --- LOG COMMANDS ---
+from discord.ui import View, Button
+
 @bot.group(invoke_without_command=True)
 async def logs(ctx):
-    await ctx.send("Use `!logs list` or `!logs search <term>`")
+    await ctx.send("Use `!logs list`, `!logs search <term>`, or `!logs download <date>`")
 
 @logs.command(name="list")
 async def logs_list(ctx):
@@ -196,8 +198,68 @@ async def logs_list(ctx):
     if not files:
         await ctx.send("No logs found yet.")
         return
+
     desc = "\n".join(f"🗓️ `{f.name.replace('logs_', '').replace('.json','')}` ({f.stat().st_size//1024} KB)" for f in files)
-    await ctx.send(embed=discord.Embed(title="Available Logs", description=desc, color=discord.Color.blurple()))
+    embed = discord.Embed(title="Available Logs", description=desc, color=discord.Color.blurple())
+    
+    # Create buttons for each file
+    view = View()
+    for f in files:
+        view.add_item(
+            Button(
+                label=f.name.replace("logs_", "").replace(".json", ""),
+                style=discord.ButtonStyle.primary,
+                url=None,
+                custom_id=f"download_{f.name}"
+            )
+        )
+
+    # Send embed with buttons
+    msg = await ctx.send(embed=embed, view=view)
+
+    # Add interaction handler
+    @bot.event
+    async def on_interaction(interaction: discord.Interaction):
+        if interaction.type != discord.InteractionType.component:
+            return
+        custom_id = interaction.data.get("custom_id")
+        if custom_id and custom_id.startswith("download_"):
+            filename = custom_id.replace("download_", "")
+            log_file = BASE_LOG_DIR / filename
+            if log_file.exists():
+                await interaction.response.send_message(
+                    content=f"Downloading `{filename}`...",
+                    ephemeral=True
+                )
+                await interaction.followup.send(file=discord.File(log_file, filename=f"{log_file.stem}.txt"))
+            else:
+                await interaction.response.send_message(
+                    content=f"File `{filename}` not found.",
+                    ephemeral=True
+                )
+
+@logs.command(name="download")
+async def logs_download(ctx, date: str = None):
+    """
+    Download a daily log file as a .txt file.
+    Usage: !logs download YYYY-MM-DD
+           !logs download today
+    """
+    if date is None or date.lower() == "today":
+        log_file = get_daily_log_path()
+    else:
+        try:
+            datetime.strptime(date, "%Y-%m-%d")
+            log_file = BASE_LOG_DIR / f"logs_{date}.json"
+        except ValueError:
+            await ctx.send("Please provide the date in `YYYY-MM-DD` format.")
+            return
+
+    if not log_file.exists():
+        await ctx.send(f"No log file found for `{date or 'today'}`.")
+        return
+
+    await ctx.send(file=discord.File(log_file, filename=f"{log_file.stem}.txt"))
 
 @logs.command(name="search")
 async def logs_search(ctx, term: str, date: str = None):
