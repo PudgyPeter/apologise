@@ -7,11 +7,13 @@ import re
 from datetime import datetime
 import pathlib
 import asyncio
+from discord.ui import Button, View
 
 # --- CONFIGURATION ---
 TOKEN = os.getenv("TOKEN")
-LOG_CHANNEL_ID = 1430766113721028658  # <- Replace with your log channel ID
-KEYWORDS = ["jordan", "pudge", "pudgy"]
+LOG_CHANNEL_ID = 1430766113721028658  # Normal logging channel
+ALERT_CHANNEL_ID = 1431130781975187537  # Keyword alert channel
+KEYWORDS = ["jordan", "pudge", "pudgy", "jorganism"]
 FUZZY_TOLERANCE = 2  # allowable typos for search
 
 # --- PATHS ---
@@ -47,9 +49,38 @@ def append_log(entry: dict):
         logs = load_log(log_path)
         logs.append(entry)
         with open(log_path, "w", encoding="utf-8") as f:
-            json.dump(logs[-5000:], f, indent=2)
+            json.dump(logs[-5000:], f, indent=2, ensure_ascii=False)
     except Exception as e:
         print(f"[💥] Logging error: {e}")
+
+def append_log_text(entry: dict):
+    """
+    Append a human-readable version of the log entry to a .txt file.
+    Preserves emojis and special characters.
+    """
+    log_file_txt = get_daily_log_path().with_suffix(".txt")
+    log_file_txt.parent.mkdir(parents=True, exist_ok=True)
+    
+    ts = entry.get("readable_time") or entry.get("created_at", "")
+    content = entry.get("content", "(no text)")
+
+    type_emoji = {"create": "💬", "edit": "✏️", "delete": "🗑️"}.get(entry.get("type"), "💬")
+
+    if entry["type"] == "edit":
+        before = entry.get("before", "(no text)")
+        after = content
+        log_line = (
+            f"[{ts}] ({entry['channel']}) {entry['author']} {type_emoji}\n"
+            f"Before: {before}\n"
+            f"After : {after}\n\n"
+        )
+    elif entry["type"] == "delete":
+        log_line = f"[{ts}] ({entry['channel']}) {entry['author']} {type_emoji}\n{content}\n\n"
+    else:
+        log_line = f"[{ts}] ({entry['channel']}) {entry['author']} {type_emoji}\n{content}\n\n"
+
+    with open(log_file_txt, "a", encoding="utf-8") as f:
+        f.write(log_line)
 
 # --- DISCORD INTENTS ---
 intents = discord.Intents.default()
@@ -111,14 +142,17 @@ async def on_message(message: discord.Message):
     if message.author.bot or not message.guild:
         return
 
-    append_log({
+    entry = {
         "id": message.id,
         "author": str(message.author),
         "content": message.content,
         "channel": message.channel.name,
         "created_at": message.created_at.isoformat(),
+        "readable_time": message.created_at.strftime("%Y-%m-%d %H:%M:%S UTC"),
         "type": "create",
-    })
+    }
+    append_log(entry)
+    append_log_text(entry)
 
     log_channel = bot.get_channel(LOG_CHANNEL_ID)
     if not log_channel or message.channel.id == LOG_CHANNEL_ID:
@@ -127,6 +161,7 @@ async def on_message(message: discord.Message):
     embed = create_message_embed([message])
     await log_channel.send(embed=embed)
 
+    # Keyword alerts
     if fuzzy_match(message.content, KEYWORDS):
         alert = discord.Embed(
             title="🚨 Keyword Detected!",
@@ -137,20 +172,32 @@ async def on_message(message: discord.Message):
         alert.set_footer(text=f"Detected at {datetime.utcnow().strftime('%H:%M:%S UTC')}")
         await log_channel.send(embed=alert)
 
-    await bot.process_commands(message)
+        # Send alert to ALERT_CHANNEL with jump button
+        alert_channel = bot.get_channel(ALERT_CHANNEL_ID)
+        if alert_channel:
+            jump_button = Button(label="Jump to Message", style=discord.ButtonStyle.link, url=message.jump_url)
+            view = View()
+            view.add_item(jump_button)
+            await alert_channel.send(embed=alert, view=view)
 
 @bot.event
 async def on_message_edit(before, after):
     if before.author.bot:
         return
-    append_log({
+
+    entry = {
         "id": before.id,
         "author": str(before.author),
         "content": after.content,
         "channel": before.channel.name,
         "created_at": datetime.utcnow().isoformat(),
+        "readable_time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
         "type": "edit",
-    })
+        "before": before.content or "(no text)"
+    }
+    append_log(entry)
+    append_log_text(entry)
+
     log_channel = bot.get_channel(LOG_CHANNEL_ID)
     if log_channel:
         embed = discord.Embed(
@@ -166,14 +213,19 @@ async def on_message_edit(before, after):
 async def on_message_delete(message):
     if message.author.bot:
         return
-    append_log({
+
+    entry = {
         "id": message.id,
         "author": str(message.author),
         "content": message.content,
         "channel": message.channel.name,
         "created_at": datetime.utcnow().isoformat(),
+        "readable_time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
         "type": "delete",
-    })
+    }
+    append_log(entry)
+    append_log_text(entry)
+
     log_channel = bot.get_channel(LOG_CHANNEL_ID)
     if log_channel:
         embed = discord.Embed(
@@ -186,143 +238,48 @@ async def on_message_delete(message):
         await log_channel.send(embed=embed)
 
 # --- LOG COMMANDS ---
-from discord.ui import View, Button
-
 @bot.group(invoke_without_command=True)
 async def logs(ctx):
     await ctx.send("Use `!logs list`, `!logs search <term>`, or `!logs download <date>`")
 
-@logs.command(name="list")
-async def logs_list(ctx):
-    files = sorted(BASE_LOG_DIR.glob("logs_*.json"))
-    if not files:
-        await ctx.send("No logs found yet.")
-        return
-
-    desc = "\n".join(f"🗓️ `{f.name.replace('logs_', '').replace('.json','')}` ({f.stat().st_size//1024} KB)" for f in files)
-    embed = discord.Embed(title="Available Logs", description=desc, color=discord.Color.blurple())
-    
-    # Create buttons for each file
-    view = View()
-    for f in files:
-        view.add_item(
-            Button(
-                label=f.name.replace("logs_", "").replace(".json", ""),
-                style=discord.ButtonStyle.primary,
-                url=None,
-                custom_id=f"download_{f.name}"
-            )
-        )
-
-    # Send embed with buttons
-    msg = await ctx.send(embed=embed, view=view)
-
-    # Add interaction handler
-    @bot.event
-    async def on_interaction(interaction: discord.Interaction):
-        if interaction.type != discord.InteractionType.component:
-            return
-        custom_id = interaction.data.get("custom_id")
-        if custom_id and custom_id.startswith("download_"):
-            filename = custom_id.replace("download_", "")
-            log_file = BASE_LOG_DIR / filename
-            if log_file.exists():
-                await interaction.response.send_message(
-                    content=f"Downloading `{filename}`...",
-                    ephemeral=True
-                )
-                await interaction.followup.send(file=discord.File(log_file, filename=f"{log_file.stem}.txt"))
-            else:
-                await interaction.response.send_message(
-                    content=f"File `{filename}` not found.",
-                    ephemeral=True
-                )
-
 @logs.command(name="download")
 async def logs_download(ctx, date: str = None):
-    """
-    Download a daily log file as a .txt file.
-    Usage: !logs download YYYY-MM-DD
-           !logs download today
-    """
     if date is None or date.lower() == "today":
-        log_file = get_daily_log_path()
+        log_file_txt = get_daily_log_path().with_suffix(".txt")
     else:
         try:
             datetime.strptime(date, "%Y-%m-%d")
-            log_file = BASE_LOG_DIR / f"logs_{date}.json"
+            log_file_txt = BASE_LOG_DIR / f"logs_{date}.txt"
         except ValueError:
             await ctx.send("Please provide the date in `YYYY-MM-DD` format.")
             return
 
-    if not log_file.exists():
+    if not log_file_txt.exists():
         await ctx.send(f"No log file found for `{date or 'today'}`.")
         return
 
-    await ctx.send(file=discord.File(log_file, filename=f"{log_file.stem}.txt"))
+    await ctx.send(file=discord.File(log_file_txt, filename=f"{log_file_txt.stem}.txt"))
 
-@logs.command(name="search")
-async def logs_search(ctx, term: str, date: str = None):
-    await ctx.trigger_typing()
-    results = []
-    if date and date.lower() == "today":
-        log_files = [get_daily_log_path()]
-    else:
-        log_files = sorted(BASE_LOG_DIR.glob("logs_*.json"))
-
-    for log_file in log_files:
-        data = load_log(log_file)
-        for entry in data:
-            content = entry.get("content", "")
-            if fuzzy_contains(content, term, FUZZY_TOLERANCE) or re.search(term, content, re.IGNORECASE):
-                results.append(entry)
-        if len(results) > 100:
-            break
-
-    if not results:
-        await ctx.send(f"No results found for `{term}`.")
+@logs.command(name="list")
+async def logs_list(ctx):
+    files = sorted(BASE_LOG_DIR.glob("logs_*.txt"))
+    if not files:
+        await ctx.send("No logs found yet.")
         return
 
-    # Pagination setup
-    per_page = 10
-    total_pages = (len(results) + per_page - 1) // per_page
+    embed = discord.Embed(title="Available Logs", color=discord.Color.blurple())
+    view = View()
+    for f in files:
+        date_str = f.stem.replace("logs_", "")
+        size_kb = f.stat().st_size // 1024
+        embed.add_field(name=f"🗓️ {date_str} ({size_kb} KB)", value=f"Click the button to download.", inline=False)
+        btn = Button(label=f"Download {date_str}", style=discord.ButtonStyle.primary)
+        async def download_callback(interaction, file=f):
+            await interaction.response.send_message(file=discord.File(file, filename=f"{file.stem}.txt"), ephemeral=True)
+        btn.callback = download_callback
+        view.add_item(btn)
 
-    def make_page(page):
-        start, end = page * per_page, (page + 1) * per_page
-        chunk = results[start:end]
-        embed = discord.Embed(title=f"🔍 Results for `{term}` — Page {page+1}/{total_pages}", color=discord.Color.green())
-        for r in chunk:
-            ts = datetime.fromisoformat(r["created_at"]).strftime("%b %d • %H:%M")
-            snippet = (r['content'][:180] + "...") if len(r['content']) > 180 else r['content']
-            embed.add_field(name=f"{r['author']} — #{r['channel']} ({r['type']})", value=f"**[{ts}]** {snippet}", inline=False)
-        return embed
-
-    page = 0
-    msg = await ctx.send(embed=make_page(page))
-
-    for emoji in ["⏮️", "◀️", "▶️", "⏭️"]:
-        await msg.add_reaction(emoji)
-
-    def check(reaction, user):
-        return user == ctx.author and str(reaction.emoji) in ["⏮️", "◀️", "▶️", "⏭️"]
-
-    while True:
-        try:
-            reaction, user = await bot.wait_for("reaction_add", timeout=120.0, check=check)
-            await msg.remove_reaction(reaction.emoji, user)
-
-            if str(reaction.emoji) == "⏮️":
-                page = 0
-            elif str(reaction.emoji) == "◀️" and page > 0:
-                page -= 1
-            elif str(reaction.emoji) == "▶️" and page < total_pages - 1:
-                page += 1
-            elif str(reaction.emoji) == "⏭️":
-                page = total_pages - 1
-
-            await msg.edit(embed=make_page(page))
-        except asyncio.TimeoutError:
-            break
+    await ctx.send(embed=embed, view=view)
 
 @bot.event
 async def on_ready():
