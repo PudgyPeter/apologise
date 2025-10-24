@@ -10,7 +10,7 @@ import asyncio
 
 # --- CONFIGURATION ---
 TOKEN = os.getenv("TOKEN")
-LOG_CHANNEL_ID = 123456789012345678  # <- Replace with your log channel ID
+LOG_CHANNEL_ID = 1430766113721028658  # <- Replace with your log channel ID
 KEYWORDS = ["jordan", "pudge", "pudgy"]
 FUZZY_TOLERANCE = 2  # allowable typos for search
 
