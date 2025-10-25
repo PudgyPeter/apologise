@@ -218,9 +218,7 @@ def build_group_embed(group_key):
         description_parts.append(line)
     embed.description = "\n\n".join(description_parts)[:4000]
     embed.set_footer(text=f"#{data.get('channel_name','unknown')} • {len(data.get('messages',[]))} messages")
-    if data.get("image_url"):
-        embed.set_image(url=data["image_url"])
-    return embed
+    return embed, data.get("image_url")
 
 # --- ADD MESSAGE TO GROUP ---
 async def add_message_to_group(message: discord.Message):
@@ -263,8 +261,9 @@ async def add_message_to_group(message: discord.Message):
             if log_chan:
                 log_msg = await log_chan.fetch_message(existing["log_message_id"])
                 existing["thumbnail"] = thumbnail
-                new_embed = build_group_embed(group_key)
-                if new_embed:
+                result = build_group_embed(group_key)
+                if result:
+                    new_embed, image_url = result
                     await log_msg.edit(embed=new_embed)
         except Exception as e:
             print(f"[💥] update group embed error: {e}")
@@ -296,9 +295,13 @@ async def add_message_to_group(message: discord.Message):
             channel_last_author[message.channel.id] = (message.author.id, message.id, now)
             return
         group_cache[group_key]["log_channel_id"] = LOG_CHANNEL_ID
-        embed = build_group_embed(group_key)
+        result = build_group_embed(group_key)
         try:
+            embed, image_url = result
             sent = await log_chan.send(embed=embed)
+            # Send image URL as plain text for Discord auto-embedding
+            if image_url:
+                await log_chan.send(image_url)
             group_cache[group_key]["log_message_id"] = sent.id
             message_to_group[message.id] = (group_key, 0)
         except Exception as e:
@@ -387,8 +390,9 @@ async def on_message_edit(before, after):
             try:
                 log_chan = bot.get_channel(data["log_channel_id"])
                 log_msg = await log_chan.fetch_message(data["log_message_id"])
-                new_embed = build_group_embed(group_key)
-                if new_embed:
+                result = build_group_embed(group_key)
+                if result:
+                    new_embed, image_url = result
                     await log_msg.edit(embed=new_embed)
             except Exception as e:
                 print(f"[💥] update on edit error: {e}")
@@ -398,11 +402,33 @@ async def on_message_edit(before, after):
             embed = discord.Embed(title="✏️ Message Edited", color=discord.Color.gold(), timestamp=datetime.utcnow())
             embed.add_field(name="Before", value=before.content or "(no text)", inline=False)
             embed.add_field(name="After", value=after.content or "(no text)", inline=False)
+            
+            attachment_urls = []
             if after.attachments:
-                embed.add_field(name="📎 Attachments", value="\n".join(a.url for a in after.attachments), inline=False)
+                attachment_urls = [a.url for a in after.attachments]
+                embed.add_field(name="📎 Attachments", value="\n".join(f"[{a.filename}]({a.url})" for a in after.attachments), inline=False)
+            
+            # Collect embed URLs from the message
+            embed_urls = []
+            if after.embeds:
+                for e in after.embeds:
+                    try:
+                        if getattr(e, "url", None):
+                            embed_urls.append(e.url)
+                    except Exception:
+                        continue
+            
             embed.set_thumbnail(url=before.author.avatar.url if before.author.avatar else discord.Embed.Empty)
             embed.set_footer(text=datetime.utcnow().strftime("%b %d • %H:%M:%S UTC"))
             await log_channel.send(embed=embed)
+            
+            # Send attachment URLs as plain text for Discord auto-embedding
+            for url in attachment_urls:
+                await log_channel.send(url)
+            
+            # Send embed URLs as plain text for Discord auto-embedding
+            for url in embed_urls:
+                await log_channel.send(url)
 
 @bot.event
 async def on_message_delete(message):
@@ -436,28 +462,24 @@ async def on_message_delete(message):
         else:
             embed.add_field(name="💬 Content", value="(no text)", inline=False)
         
-        # Handle attachments - embed images/gifs/videos, link others
+        # Handle attachments - collect URLs to send separately
+        all_attachment_urls = []
+        attachment_links = []
         if message.attachments:
-            first_media = None
-            attachment_links = []
-            
             for att in message.attachments:
                 # Check if it's media that can be embedded
                 is_image = any(att.filename.lower().endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".gif", ".webp"])
                 is_video = any(att.filename.lower().endswith(ext) for ext in [".mp4", ".mov", ".webm"])
                 
-                if (is_image or is_video) and not first_media:
-                    first_media = att.url
-                else:
-                    attachment_links.append(f"[{att.filename}]({att.url})")
+                # Collect all attachment URLs for sending
+                all_attachment_urls.append(att.url)
+                
+                # Also add as links in embed
+                attachment_links.append(f"[{att.filename}]({att.url})")
             
-            # Set the first media as embed image
-            if first_media:
-                embed.set_image(url=first_media)
-            
-            # Add links for additional attachments
+            # Add links for attachments in the embed
             if attachment_links:
-                embed.add_field(name="📎 Additional Attachments", value="\n".join(attachment_links), inline=False)
+                embed.add_field(name="📎 Attachments", value="\n".join(attachment_links), inline=False)
         
         # Handle embeds from the original message (like linked images)
         embed_urls = []
@@ -476,10 +498,14 @@ async def on_message_delete(message):
         
         try:
             await log_channel.send(embed=embed)
+            
+            # Send attachment URLs as plain text so Discord auto-embeds them
+            for url in all_attachment_urls:
+                await log_channel.send(url)
+            
             # Send embed URLs as plain text so Discord auto-embeds them
-            if embed_urls:
-                for url in embed_urls:
-                    await log_channel.send(url)
+            for url in embed_urls:
+                await log_channel.send(url)
         except Exception as e:
             print(f"[💥] send delete embed error: {e}")
 
@@ -503,8 +529,9 @@ async def update_reaction_on_embed(message: discord.Message, reaction: discord.R
         try:
             log_chan = bot.get_channel(data["log_channel_id"])
             log_msg = await log_chan.fetch_message(data["log_message_id"])
-            new_embed = build_group_embed(group_key)
-            if new_embed:
+            result = build_group_embed(group_key)
+            if result:
+                new_embed, image_url = result
                 await log_msg.edit(embed=new_embed)
         except Exception as e:
             print(f"[💥] update reaction embed error: {e}")
