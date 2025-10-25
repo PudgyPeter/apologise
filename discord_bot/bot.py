@@ -174,7 +174,17 @@ def build_group_embed(group_key):
         return None
     first = data["messages"][0]
     author_display = first.get("author_display", "Unknown")
-    color = discord.Color.blurple()
+    
+    # Get the author's highest role color
+    color = discord.Color.blurple()  # default fallback
+    if data.get("guild") and data.get("author_id"):
+        try:
+            member = data["guild"].get_member(data["author_id"])
+            if member and member.top_role and member.top_role.color.value != 0:
+                color = member.top_role.color
+        except Exception:
+            pass  # fallback to blurple if we can't get the role color
+    
     embed = discord.Embed(color=color, timestamp=data["messages"][-1]["created_at"])
     embed.set_author(name=f"{author_display}")
     if data.get("thumbnail"):
@@ -188,11 +198,15 @@ def build_group_embed(group_key):
             line = f"↩️ replying to **{rp['author']}**: `{rp['content']}`\n{line}"
         if m.get("attachments"):
             for i, aurl in enumerate(m["attachments"]):
-                if i == 0:
-                    # first attachment may be shown as embed image
+                # Check if it's an image/gif/video that should be embedded
+                is_media = re.search(r"\.(gif|png|jpe?g|webp|mp4|mov|webm)$", aurl, re.IGNORECASE)
+                if i == 0 and is_media:
+                    # first media attachment will be shown as embed image
                     pass
                 else:
-                    line += f"\n📎 {aurl}"
+                    # Show link for non-media or additional attachments
+                    filename = aurl.split("/")[-1].split("?")[0]
+                    line += f"\n📎 [{filename}]({aurl})"
         if m.get("reactions"):
             parts = []
             for emoji, info in m["reactions"].items():
@@ -237,7 +251,7 @@ async def add_message_to_group(message: discord.Message):
         if not existing.get("image_url"):
             if entry["attachments"]:
                 for aurl in entry["attachments"]:
-                    if re.search(r"\.(gif|png|jpe?g|webp)$", aurl, re.IGNORECASE):
+                    if re.search(r"\.(gif|png|jpe?g|webp|mp4|mov|webm)$", aurl, re.IGNORECASE):
                         existing["image_url"] = aurl
                         break
             else:
@@ -265,10 +279,11 @@ async def add_message_to_group(message: discord.Message):
             "image_url": None,
             "channel_name": message.channel.name,
             "guild": message.guild,
+            "author_id": message.author.id,
         }
         if entry["attachments"]:
             for aurl in entry["attachments"]:
-                if re.search(r"\.(gif|png|jpe?g|webp)$", aurl, re.IGNORECASE):
+                if re.search(r"\.(gif|png|jpe?g|webp|mp4|mov|webm)$", aurl, re.IGNORECASE):
                     group_cache[group_key]["image_url"] = aurl
                     break
         else:
@@ -403,47 +418,64 @@ async def on_message_delete(message):
         "type": "delete",
     }
     append_log(entry)
-    mg = message_to_group.get(message.id)
-    if mg:
-        group_key, idx = mg
-        data = group_cache.get(group_key)
-        if data and idx < len(data["messages"]):
-            data["messages"][idx]["content"] = "(message deleted)"
-            try:
-                log_chan = bot.get_channel(data["log_channel_id"])
-                log_msg = await log_chan.fetch_message(data["log_message_id"])
-                new_embed = build_group_embed(group_key)
-                if new_embed:
-                    await log_msg.edit(embed=new_embed)
-            except Exception as e:
-                print(f"[💥] update on delete error: {e}")
-    else:
-        log_channel = bot.get_channel(LOG_CHANNEL_ID)
-        if log_channel:
-            embed = discord.Embed(
-                title="🗑️ Message Deleted",
-                description=f"**Author:** {message.author.mention}\n**Channel:** <#{message.channel.id}>",
-                color=discord.Color.red(),
-                timestamp=datetime.utcnow()
-            )
-            if message.content:
-                embed.add_field(name="💬 Content", value=(message.content[:1024] if message.content else "(no text)"), inline=False)
-            if message.attachments:
-                first_attachment = message.attachments[0]
-                if any(first_attachment.filename.lower().endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".gif", ".webp"]):
-                    embed.set_image(url=first_attachment.url)
+    
+    # Always create a NEW embed for deleted messages (don't edit the original)
+    log_channel = bot.get_channel(LOG_CHANNEL_ID)
+    if log_channel:
+        embed = discord.Embed(
+            title="🗑️ Message Deleted",
+            description=f"**Author:** {message.author.mention}\n**Channel:** <#{message.channel.id}>",
+            color=discord.Color.red(),
+            timestamp=datetime.utcnow()
+        )
+        
+        # Add message content
+        if message.content:
+            content_preview = message.content[:1024] if len(message.content) > 1024 else message.content
+            embed.add_field(name="💬 Content", value=content_preview, inline=False)
+        else:
+            embed.add_field(name="💬 Content", value="(no text)", inline=False)
+        
+        # Handle attachments - embed images/gifs/videos, link others
+        if message.attachments:
+            first_media = None
+            attachment_links = []
+            
+            for att in message.attachments:
+                # Check if it's media that can be embedded
+                is_image = any(att.filename.lower().endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".gif", ".webp"])
+                is_video = any(att.filename.lower().endswith(ext) for ext in [".mp4", ".mov", ".webm"])
+                
+                if (is_image or is_video) and not first_media:
+                    first_media = att.url
                 else:
-                    embed.add_field(name="📎 Attachment(s)", value="\n".join(a.url for a in message.attachments), inline=False)
-            if not message.attachments and message.embeds:
-                for e in message.embeds:
-                    try:
-                        if getattr(e, "type", None) == "image" and getattr(e, "url", None):
-                            embed.set_image(url=e.url)
-                    except Exception:
-                        continue
-            embed.set_thumbnail(url=message.author.avatar.url if message.author.avatar else discord.Embed.Empty)
-            embed.set_footer(text=datetime.utcnow().strftime("%b %d • %H:%M:%S UTC"))
+                    attachment_links.append(f"[{att.filename}]({att.url})")
+            
+            # Set the first media as embed image
+            if first_media:
+                embed.set_image(url=first_media)
+            
+            # Add links for additional attachments
+            if attachment_links:
+                embed.add_field(name="📎 Additional Attachments", value="\n".join(attachment_links), inline=False)
+        
+        # Handle embeds from the original message (like linked images)
+        if not message.attachments and message.embeds:
+            for e in message.embeds:
+                try:
+                    if getattr(e, "type", None) == "image" and getattr(e, "url", None):
+                        embed.set_image(url=e.url)
+                        break
+                except Exception:
+                    continue
+        
+        embed.set_thumbnail(url=message.author.avatar.url if message.author.avatar else discord.Embed.Empty)
+        embed.set_footer(text=f"Original message from {message.created_at.strftime('%b %d • %H:%M:%S UTC')}")
+        
+        try:
             await log_channel.send(embed=embed)
+        except Exception as e:
+            print(f"[💥] send delete embed error: {e}")
 
 # --- REACTIONS ---
 async def update_reaction_on_embed(message: discord.Message, reaction: discord.Reaction):
@@ -606,16 +638,30 @@ async def logs_search(ctx, *, term: str):
 # --- CUSTOM LOG CREATION AND PRUNING ---
 @bot.command(name="create")
 @commands.has_permissions(manage_messages=True)
-async def create_custom_log(ctx, subcommand=None, amount: int = None, *, name: str = None):
+async def create_custom_log(ctx, subcommand=None, amount: int = None, name: str = None, channel_id: int = None):
     if subcommand != "log" or not amount or not name:
-        await ctx.send("Usage: `!create log <amount> <name>`")
+        await ctx.send("Usage: `!create log <amount> <name> [channel_id]`")
         return
     if amount > 5000:
         await ctx.send("❌ You can only export up to 5000 messages at once.")
         return
-    await ctx.send(f"Creating custom log `{name}` with last {amount} messages... ⏳")
+    
+    # Determine which channel to use
+    if channel_id:
+        try:
+            target_channel = bot.get_channel(channel_id)
+            if not target_channel:
+                await ctx.send(f"❌ Channel with ID `{channel_id}` not found.")
+                return
+        except Exception as e:
+            await ctx.send(f"❌ Invalid channel ID: {e}")
+            return
+    else:
+        target_channel = ctx.channel
+    
+    await ctx.send(f"Creating custom log `{name}` with last {amount} messages from #{target_channel.name}... ⏳")
     messages = []
-    async for msg in ctx.channel.history(limit=amount, oldest_first=True):
+    async for msg in target_channel.history(limit=amount):
         if msg.author.bot:
             continue
         messages.append({
@@ -624,9 +670,13 @@ async def create_custom_log(ctx, subcommand=None, amount: int = None, *, name: s
             "content": msg.content or "",
             "created_at": msg.created_at.isoformat(),
             "readable_time": msg.created_at.strftime("%Y-%m-%d %H:%M:%S UTC"),
-            "channel": msg.channel.name,
+            "channel": target_channel.name,
             "attachments": [a.url for a in msg.attachments],
         })
+    
+    # Reverse to get chronological order (oldest to newest)
+    messages.reverse()
+    
     json_path = BASE_LOG_DIR / f"custom_{name}.json"
     txt_path = BASE_LOG_DIR / f"custom_{name}.txt"
     with open(json_path, "w", encoding="utf-8") as jf:
@@ -642,7 +692,7 @@ async def create_custom_log(ctx, subcommand=None, amount: int = None, *, name: s
         await interaction.response.send_message(file=discord.File(txt_path, filename=txt_path.name), ephemeral=True)
     btn.callback = cb
     view = View(); view.add_item(btn)
-    e = discord.Embed(title="✅ Custom Log Created", description=f"Saved as `{txt_path.name}`", color=discord.Color.green())
+    e = discord.Embed(title="✅ Custom Log Created", description=f"Saved as `{txt_path.name}` from #{target_channel.name}", color=discord.Color.green())
     await ctx.send(embed=e, view=view)
 
 @logs.command(name="prune")
