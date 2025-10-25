@@ -17,6 +17,7 @@ KEYWORDS = ["jordan", "pudge", "pudgy", "jorganism"]
 FUZZY_TOLERANCE = 2
 GROUP_WINDOW = 10  # seconds to group messages
 GROUP_PRUNE = 60   # seconds after which an inactive group is pruned
+MAX_SEARCH_RESULTS = 200
 
 # --- PATHS ---
 RAILWAY_DIR = pathlib.Path("/mnt/data")
@@ -27,7 +28,6 @@ else:
     LOCAL_DIR.mkdir(parents=True, exist_ok=True)
     BASE_LOG_DIR = LOCAL_DIR
 BASE_LOG_DIR.mkdir(parents=True, exist_ok=True)
-print(f"[📂] Using persistent log directory at: {BASE_LOG_DIR}")
 
 # --- DAILY LOG HELPERS ---
 def get_daily_log_path() -> pathlib.Path:
@@ -40,7 +40,6 @@ def load_log(log_path: pathlib.Path):
     try:
         return json.loads(log_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
-        print(f"[⚠️] Log file {log_path.name} corrupted, resetting.")
         log_path.write_text("[]", encoding="utf-8")
         return []
 
@@ -86,7 +85,7 @@ intents.reactions = True
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# --- UTILS: fuzzy match ---
+# --- FUZZY HELPERS ---
 def levenshtein(a, b):
     if len(a) < len(b):
         return levenshtein(b, a)
@@ -104,10 +103,12 @@ def levenshtein(a, b):
     return previous_row[-1]
 
 def fuzzy_contains(text, keyword, tolerance=FUZZY_TOLERANCE):
-    text = text.lower()
-    keyword = keyword.lower()
+    text = (text or "").lower()
+    keyword = (keyword or "").lower()
     if keyword in text:
         return True
+    if len(keyword) == 0 or len(text) < len(keyword):
+        return False
     for i in range(len(text) - len(keyword) + 1):
         window = text[i:i + len(keyword)]
         if levenshtein(window, keyword) <= tolerance:
@@ -135,14 +136,15 @@ def find_image_url(text: str):
     return match.group(1) if match else None
 
 # --- GROUPING CACHE & MAPPINGS ---
-group_cache = {}  # (author_id, channel_id) -> {'last_time': dt, 'messages': [entry], 'log_channel_id': int, 'log_message_id': int}
+group_cache = {}  # (author_id, channel_id) -> data
 message_to_group = {}  # message_id -> (group_key, index)
+channel_last_author = {}  # channel_id -> (author_id, message_id, timestamp) to prevent grouping across other authors
 
-# build entry helper
+# --- BUILD ENTRY FROM MESSAGE ---
 async def build_entry_from_message(message: discord.Message):
     attachments = [a.url for a in message.attachments]
     reply_preview = None
-    if message.reference and message.reference.message_id:
+    if message.reference and getattr(message.reference, "message_id", None):
         try:
             ref = await message.channel.fetch_message(message.reference.message_id)
             preview = (ref.content or "(no text)").strip()
@@ -165,74 +167,75 @@ async def build_entry_from_message(message: discord.Message):
         "reply_preview": reply_preview
     }
 
-# --- EMBED BUILDING & UPDATE ---
+# --- BUILD GROUP EMBED ---
 def build_group_embed(group_key):
     data = group_cache.get(group_key)
-    if not data or not data["messages"]:
+    if not data or not data.get("messages"):
         return None
     first = data["messages"][0]
-    author_display = first["author_display"]
+    author_display = first.get("author_display", "Unknown")
     color = discord.Color.blurple()
-    # try to set color based on member role (best-effort)
-    try:
-        guild = data.get("guild")
-        if guild:
-            member = guild.get_member(int(first["author"].split("#")[0]) )  # best-effort, ignore if fails
-    except Exception:
-        pass
     embed = discord.Embed(color=color, timestamp=data["messages"][-1]["created_at"])
     embed.set_author(name=f"{author_display}")
-    # thumbnail = sender avatar URL stored separately in cache
     if data.get("thumbnail"):
         embed.set_thumbnail(url=data["thumbnail"])
     description_parts = []
     for m in data["messages"]:
-        ts = m["created_at"].strftime("%H:%M:%S")
+        ts = m["created_at"].strftime("%H:%M:%S") if hasattr(m["created_at"], "strftime") else str(m["created_at"])
         line = f"**[{ts}]** {m['content'] or '(no text)'}"
-        if m["reply_preview"]:
+        if m.get("reply_preview"):
             rp = m["reply_preview"]
             line = f"↩️ replying to **{rp['author']}**: `{rp['content']}`\n{line}"
-        if m["attachments"]:
+        if m.get("attachments"):
             for i, aurl in enumerate(m["attachments"]):
                 if i == 0:
-                    # already set image separately if it's an image; we still show the URL for others
+                    # first attachment may be shown as embed image
                     pass
                 else:
                     line += f"\n📎 {aurl}"
-        # reactions summary
-        if m["reactions"]:
+        if m.get("reactions"):
             parts = []
             for emoji, info in m["reactions"].items():
                 users = info.get("users", [])
-                snippet = ", ".join(users[:5])
+                snippet = ", ".join(users[:5]) if users else ""
                 parts.append(f"{emoji} x{info.get('count',0)} ({snippet})")
-            line += f"\n🔁 Reactions: {' • '.join(parts)}"
+            if parts:
+                line += f"\n🔁 Reactions: {' • '.join(parts)}"
         description_parts.append(line)
     embed.description = "\n\n".join(description_parts)[:4000]
-    embed.set_footer(text=f"#{data['channel_name']} • {len(data['messages'])} messages")
-    # set image: prefer first attachment image or detected link image
+    embed.set_footer(text=f"#{data.get('channel_name','unknown')} • {len(data.get('messages',[]))} messages")
     if data.get("image_url"):
         embed.set_image(url=data["image_url"])
     return embed
 
-# helper to send or update group
+# --- ADD MESSAGE TO GROUP ---
 async def add_message_to_group(message: discord.Message):
     group_key = (message.author.id, message.channel.id)
     now = datetime.utcnow()
     entry = await build_entry_from_message(message)
-    # add thumbnail url (author avatar)
     thumbnail = message.author.avatar.url if message.author.avatar else None
+
+    # check channel last author to prevent grouping across other users
+    chan_info = channel_last_author.get(message.channel.id)
+    if chan_info:
+        last_author_id, last_msg_id, last_ts = chan_info
+    else:
+        last_author_id, last_msg_id, last_ts = (None, None, None)
+
     existing = group_cache.get(group_key)
+    can_group = False
     if existing and (now - existing["last_time"]).total_seconds() <= GROUP_WINDOW:
+        # also require that the last message in the channel was from the same author and it wasn't interrupted
+        if last_author_id == message.author.id and last_msg_id == existing["messages"][-1]["message_id"]:
+            can_group = True
+
+    if can_group:
         existing["messages"].append(entry)
         existing["last_time"] = now
-        # map message id
         idx = len(existing["messages"]) - 1
         message_to_group[message.id] = (group_key, idx)
-        # update image_url if not set and first attachment is image or link
         if not existing.get("image_url"):
             if entry["attachments"]:
-                # set first image attachment if any
                 for aurl in entry["attachments"]:
                     if re.search(r"\.(gif|png|jpe?g|webp)$", aurl, re.IGNORECASE):
                         existing["image_url"] = aurl
@@ -241,12 +244,10 @@ async def add_message_to_group(message: discord.Message):
                 link_img = find_image_url(entry["content"])
                 if link_img:
                     existing["image_url"] = link_img
-        # update embed
         try:
             log_chan = bot.get_channel(existing["log_channel_id"])
             if log_chan:
                 log_msg = await log_chan.fetch_message(existing["log_message_id"])
-                # update thumbnail if not present
                 existing["thumbnail"] = thumbnail
                 new_embed = build_group_embed(group_key)
                 if new_embed:
@@ -254,18 +255,17 @@ async def add_message_to_group(message: discord.Message):
         except Exception as e:
             print(f"[💥] update group embed error: {e}")
     else:
-        # create a new group
+        # start new group
         group_cache[group_key] = {
             "last_time": now,
             "messages": [entry],
-            "log_channel_id": message.channel.id,  # will update below to real log channel id
+            "log_channel_id": message.channel.id,  # replaced with actual log channel below
             "log_message_id": None,
             "thumbnail": thumbnail,
             "image_url": None,
             "channel_name": message.channel.name,
             "guild": message.guild,
         }
-        # set image_url if available
         if entry["attachments"]:
             for aurl in entry["attachments"]:
                 if re.search(r"\.(gif|png|jpe?g|webp)$", aurl, re.IGNORECASE):
@@ -275,9 +275,10 @@ async def add_message_to_group(message: discord.Message):
             link_img = find_image_url(entry["content"])
             if link_img:
                 group_cache[group_key]["image_url"] = link_img
-        # send embed to log channel
         log_chan = bot.get_channel(LOG_CHANNEL_ID)
         if not log_chan:
+            # still update channel_last_author info so next message grouping logic works
+            channel_last_author[message.channel.id] = (message.author.id, message.id, now)
             return
         group_cache[group_key]["log_channel_id"] = LOG_CHANNEL_ID
         embed = build_group_embed(group_key)
@@ -287,6 +288,9 @@ async def add_message_to_group(message: discord.Message):
             message_to_group[message.id] = (group_key, 0)
         except Exception as e:
             print(f"[💥] send group embed error: {e}")
+
+    # update last author tracker for the channel
+    channel_last_author[message.channel.id] = (message.author.id, message.id, now)
 
 # --- PRUNE TASK ---
 @tasks.loop(seconds=15)
@@ -308,7 +312,7 @@ async def before_prune():
 async def on_message(message: discord.Message):
     if message.author.bot or not message.guild:
         return
-    # log entry
+
     entry = {
         "id": message.id,
         "author": str(message.author),
@@ -319,8 +323,8 @@ async def on_message(message: discord.Message):
         "type": "create",
     }
     append_log(entry)
-    # mirror and grouping
     await add_message_to_group(message)
+
     # KEYWORD ALERT: only when there is non-link text and no attachments
     has_attachments = len(message.attachments) > 0
     content_lower = (message.content or "").strip().lower()
@@ -338,9 +342,9 @@ async def on_message(message: discord.Message):
         alert_channel = bot.get_channel(ALERT_CHANNEL_ID)
         if alert_channel:
             jump_button = Button(label="Jump to Message", style=discord.ButtonStyle.link, url=message.jump_url)
-            view = View()
-            view.add_item(jump_button)
+            view = View(); view.add_item(jump_button)
             await alert_channel.send(embed=alert, view=view)
+
     await bot.process_commands(message)
 
 @bot.event
@@ -358,7 +362,6 @@ async def on_message_edit(before, after):
         "before": before.content or "(no text)"
     }
     append_log(entry)
-    # update cache if present
     mg = message_to_group.get(before.id)
     if mg:
         group_key, idx = mg
@@ -366,7 +369,6 @@ async def on_message_edit(before, after):
         if data and idx < len(data["messages"]):
             data["messages"][idx]["content"] = after.content or ""
             data["messages"][idx]["created_at"] = after.edited_at or datetime.utcnow()
-            # rebuild embed
             try:
                 log_chan = bot.get_channel(data["log_channel_id"])
                 log_msg = await log_chan.fetch_message(data["log_message_id"])
@@ -376,12 +378,14 @@ async def on_message_edit(before, after):
             except Exception as e:
                 print(f"[💥] update on edit error: {e}")
     else:
-        # send a separate edited embed
         log_channel = bot.get_channel(LOG_CHANNEL_ID)
         if log_channel:
-            embed = discord.Embed(title=f"✏️ Edited Message by {before.author}", color=discord.Color.gold(), timestamp=datetime.utcnow())
+            embed = discord.Embed(title="✏️ Message Edited", color=discord.Color.gold(), timestamp=datetime.utcnow())
             embed.add_field(name="Before", value=before.content or "(no text)", inline=False)
             embed.add_field(name="After", value=after.content or "(no text)", inline=False)
+            if after.attachments:
+                embed.add_field(name="📎 Attachments", value="\n".join(a.url for a in after.attachments), inline=False)
+            embed.set_thumbnail(url=before.author.avatar.url if before.author.avatar else discord.Embed.Empty)
             embed.set_footer(text=datetime.utcnow().strftime("%b %d • %H:%M:%S UTC"))
             await log_channel.send(embed=embed)
 
@@ -418,10 +422,25 @@ async def on_message_delete(message):
         if log_channel:
             embed = discord.Embed(
                 title="🗑️ Message Deleted",
-                description=f"**Author:** {message.author}\n**Channel:** <#{message.channel.id}>\n\n> {message.content or '(no text)'}",
-                color=discord.Color.dark_gray(),
+                description=f"**Author:** {message.author.mention}\n**Channel:** <#{message.channel.id}>",
+                color=discord.Color.red(),
                 timestamp=datetime.utcnow()
             )
+            if message.content:
+                embed.add_field(name="💬 Content", value=(message.content[:1024] if message.content else "(no text)"), inline=False)
+            if message.attachments:
+                first_attachment = message.attachments[0]
+                if any(first_attachment.filename.lower().endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".gif", ".webp"]):
+                    embed.set_image(url=first_attachment.url)
+                else:
+                    embed.add_field(name="📎 Attachment(s)", value="\n".join(a.url for a in message.attachments), inline=False)
+            if not message.attachments and message.embeds:
+                for e in message.embeds:
+                    try:
+                        if getattr(e, "type", None) == "image" and getattr(e, "url", None):
+                            embed.set_image(url=e.url)
+                    except Exception:
+                        continue
             embed.set_thumbnail(url=message.author.avatar.url if message.author.avatar else discord.Embed.Empty)
             embed.set_footer(text=datetime.utcnow().strftime("%b %d • %H:%M:%S UTC"))
             await log_channel.send(embed=embed)
@@ -429,7 +448,6 @@ async def on_message_delete(message):
 # --- REACTIONS ---
 async def update_reaction_on_embed(message: discord.Message, reaction: discord.Reaction):
     mg = message_to_group.get(message.id)
-    # prepare reaction summary
     try:
         users = await reaction.users().flatten()
         user_names = [str(u) for u in users if not u.bot][:5]
@@ -442,10 +460,8 @@ async def update_reaction_on_embed(message: discord.Message, reaction: discord.R
         data = group_cache.get(group_key)
         if not data:
             return
-        # store into entry
         entry = data["messages"][idx]
         entry["reactions"][emoji] = {"count": count, "users": user_names}
-        # edit embed
         try:
             log_chan = bot.get_channel(data["log_channel_id"])
             log_msg = await log_chan.fetch_message(data["log_message_id"])
@@ -455,7 +471,6 @@ async def update_reaction_on_embed(message: discord.Message, reaction: discord.R
         except Exception as e:
             print(f"[💥] update reaction embed error: {e}")
     else:
-        # message not mapped; send small reaction embed
         entry = {
             "id": message.id,
             "author": str(message.author),
@@ -485,6 +500,7 @@ async def on_reaction_add(reaction, user):
     message = reaction.message
     await update_reaction_on_embed(message, reaction)
 
+
 @bot.event
 async def on_reaction_remove(reaction, user):
     if user.bot:
@@ -498,26 +514,28 @@ async def on_ready():
     prune_groups.start()
     print(f"[✅] Logged in as {bot.user} (ID: {bot.user.id})")
 
-# --- LOG COMMANDS (list/download/search: simplified) ---
+# --- LOG COMMANDS (list/download/search) ---
 @bot.group(invoke_without_command=True)
 async def logs(ctx):
-    await ctx.send("Use `!logs list`, `!logs search <term>`, or `!logs download <date>`")
+    await ctx.send("Use `!logs list`, `!logs search <term>`, `!logs download <date|today>`, or `!logs prune <name>`")
 
 @logs.command(name="list")
 async def logs_list(ctx):
     files = sorted(BASE_LOG_DIR.glob("logs_*.txt"))
+    custom = sorted(BASE_LOG_DIR.glob("custom_*.txt"))
+    files = files + custom
     if not files:
         await ctx.send("No logs found yet.")
         return
     embed = discord.Embed(title="Available Logs", color=discord.Color.blurple())
     view = View()
     for f in files:
-        date_str = f.stem.replace("logs_", "")
+        date_str = f.stem.replace("logs_", "").replace("custom_", "")
         size_kb = f.stat().st_size // 1024
         embed.add_field(name=f"🗓️ {date_str} ({size_kb} KB)", value=f"Click below to download.", inline=False)
         btn = Button(label=f"Download {date_str}", style=discord.ButtonStyle.primary)
         async def download_callback(interaction, file=f):
-            await interaction.response.send_message(file=discord.File(file, filename=f"{file.stem}.txt"), ephemeral=True)
+            await interaction.response.send_message(file=discord.File(file, filename=file.name), ephemeral=True)
         btn.callback = download_callback
         view.add_item(btn)
     await ctx.send(embed=embed, view=view)
@@ -542,12 +560,13 @@ async def logs_download(ctx, date: str = None):
 async def logs_search(ctx, *, term: str):
     await ctx.trigger_typing()
     results = []
-    for log_file in sorted(BASE_LOG_DIR.glob("logs_*.json")):
+    # search both daily and custom JSON logs
+    for log_file in sorted(BASE_LOG_DIR.glob("*.json")):
         data = load_log(log_file)
         for entry in data:
             if fuzzy_contains(entry.get("content", ""), term):
                 results.append(entry)
-        if len(results) > 200:
+        if len(results) > MAX_SEARCH_RESULTS:
             break
     if not results:
         await ctx.send(f"No results found for `{term}`.")
@@ -559,8 +578,8 @@ async def logs_search(ctx, *, term: str):
         embed = discord.Embed(title=f"🔍 Results for '{term}' ({page+1}/{total_pages})", color=discord.Color.green())
         for r in results[start:end]:
             ts = datetime.fromisoformat(r["created_at"]).strftime("%H:%M:%S")
-            snippet = (r['content'][:180] + "...") if len(r['content']) > 180 else r['content']
-            embed.add_field(name=f"{r['author']} — #{r['channel']} ({r['type']})", value=f"[{ts}] {snippet}", inline=False)
+            snippet = (r['content'][:180] + "...") if len(r.get('content','')) > 180 else r.get('content','')
+            embed.add_field(name=f"{r['author']} — #{r['channel']} ({r.get('type','')})", value=f"[{ts}] {snippet}", inline=False)
         return embed
     page = 0
     msg = await ctx.send(embed=make_page(page))
@@ -584,4 +603,58 @@ async def logs_search(ctx, *, term: str):
         except asyncio.TimeoutError:
             break
 
+# --- CUSTOM LOG CREATION AND PRUNING ---
+@bot.command(name="create")
+@commands.has_permissions(manage_messages=True)
+async def create_custom_log(ctx, subcommand=None, amount: int = None, *, name: str = None):
+    if subcommand != "log" or not amount or not name:
+        await ctx.send("Usage: `!create log <amount> <name>`")
+        return
+    if amount > 5000:
+        await ctx.send("❌ You can only export up to 5000 messages at once.")
+        return
+    await ctx.send(f"Creating custom log `{name}` with last {amount} messages... ⏳")
+    messages = []
+    async for msg in ctx.channel.history(limit=amount, oldest_first=True):
+        if msg.author.bot:
+            continue
+        messages.append({
+            "id": msg.id,
+            "author": str(msg.author),
+            "content": msg.content or "",
+            "created_at": msg.created_at.isoformat(),
+            "readable_time": msg.created_at.strftime("%Y-%m-%d %H:%M:%S UTC"),
+            "channel": msg.channel.name,
+            "attachments": [a.url for a in msg.attachments],
+        })
+    json_path = BASE_LOG_DIR / f"custom_{name}.json"
+    txt_path = BASE_LOG_DIR / f"custom_{name}.txt"
+    with open(json_path, "w", encoding="utf-8") as jf:
+        json.dump(messages, jf, indent=2, ensure_ascii=False)
+    with open(txt_path, "w", encoding="utf-8") as tf:
+        for m in messages:
+            tf.write(f"[{m['readable_time']}] {m['author']}:\n{m['content'] or '(no text)'}\n")
+            if m["attachments"]:
+                tf.write("  📎 " + ", ".join(m["attachments"]) + "\n")
+            tf.write("\n")
+    btn = Button(label="Download Log", style=discord.ButtonStyle.success)
+    async def cb(interaction):
+        await interaction.response.send_message(file=discord.File(txt_path, filename=txt_path.name), ephemeral=True)
+    btn.callback = cb
+    view = View(); view.add_item(btn)
+    e = discord.Embed(title="✅ Custom Log Created", description=f"Saved as `{txt_path.name}`", color=discord.Color.green())
+    await ctx.send(embed=e, view=view)
+
+@logs.command(name="prune")
+@commands.has_permissions(manage_messages=True)
+async def logs_prune(ctx, *, name: str):
+    removed = False
+    for ext in [".json", ".txt"]:
+        p = BASE_LOG_DIR / f"custom_{name}{ext}"
+        if p.exists():
+            p.unlink()
+            removed = True
+    await ctx.send(f"{'🗑️ Deleted' if removed else '❌ No such log found'} `{name}`")
+
+# --- START BOT ---
 bot.run(TOKEN)
