@@ -739,5 +739,16 @@ async def logs_prune(ctx, *, name: str):
             removed = True
     await ctx.send(f"{'🗑️ Deleted' if removed else '❌ No such log found'} `{name}`")
 
+@logs.command(name="delete")
+@commands.has_permissions(manage_messages=True)
+async def logs_prune(ctx, *, name: str):
+    removed = False
+    for ext in [".json", ".txt"]:
+        p = BASE_LOG_DIR / f"custom_{name}{ext}"
+        if p.exists():
+            p.unlink()
+            removed = True
+    await ctx.send(f"{'🗑️ Deleted' if removed else '❌ No such log found'} `{name}`")
+
 # --- START BOT ---
 bot.run(TOKEN)
