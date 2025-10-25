@@ -460,12 +460,14 @@ async def on_message_delete(message):
                 embed.add_field(name="📎 Additional Attachments", value="\n".join(attachment_links), inline=False)
         
         # Handle embeds from the original message (like linked images)
-        if not message.attachments and message.embeds:
+        embed_urls = []
+        if message.embeds:
             for e in message.embeds:
                 try:
                     if getattr(e, "type", None) == "image" and getattr(e, "url", None):
-                        embed.set_image(url=e.url)
-                        break
+                        embed_urls.append(e.url)
+                    elif getattr(e, "url", None):
+                        embed_urls.append(e.url)
                 except Exception:
                     continue
         
@@ -474,6 +476,10 @@ async def on_message_delete(message):
         
         try:
             await log_channel.send(embed=embed)
+            # Send embed URLs as plain text so Discord auto-embeds them
+            if embed_urls:
+                for url in embed_urls:
+                    await log_channel.send(url)
         except Exception as e:
             print(f"[💥] send delete embed error: {e}")
 
