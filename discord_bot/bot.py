@@ -265,6 +265,10 @@ async def add_message_to_group(message: discord.Message):
                 if result:
                     new_embed, image_url = result
                     await log_msg.edit(embed=new_embed)
+                # Send all attachment URLs from the new message as plain text for Discord auto-embedding
+                if entry["attachments"]:
+                    for aurl in entry["attachments"]:
+                        await log_chan.send(aurl)
         except Exception as e:
             print(f"[💥] update group embed error: {e}")
     else:
@@ -299,9 +303,10 @@ async def add_message_to_group(message: discord.Message):
         try:
             embed, image_url = result
             sent = await log_chan.send(embed=embed)
-            # Send image URL as plain text for Discord auto-embedding
-            if image_url:
-                await log_chan.send(image_url)
+            # Send all attachment URLs as plain text for Discord auto-embedding
+            if entry["attachments"]:
+                for aurl in entry["attachments"]:
+                    await log_chan.send(aurl)
             group_cache[group_key]["log_message_id"] = sent.id
             message_to_group[message.id] = (group_key, 0)
         except Exception as e:
