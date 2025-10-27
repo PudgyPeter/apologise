@@ -260,6 +260,28 @@
   display: flex;
   flex-direction: column;
   gap: 0;
+  overflow-y: auto;
+  max-height: calc(100vh - 250px);
+  padding-right: 8px;
+}
+
+/* Scrollbar styling */
+.log-entries::-webkit-scrollbar {
+  width: 8px;
+}
+
+.log-entries::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.log-entries::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.log-entries::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
 }
 
 /* Discord-like message styling */
@@ -878,4 +900,17 @@
 .dark-mode .message-type-badge {
   background: #89b4fa;
   color: #1e1e2e;
+}
+
+/* Dark mode scrollbar */
+.dark-mode .log-entries::-webkit-scrollbar-track {
+  background: #1e1e2e;
+}
+
+.dark-mode .log-entries::-webkit-scrollbar-thumb {
+  background: #585b70;
+}
+
+.dark-mode .log-entries::-webkit-scrollbar-thumb:hover {
+  background: #6c7086;
 }
