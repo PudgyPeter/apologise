@@ -24,8 +24,12 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('logs'); // 'logs', 'search', or 'live'
   const [currentPage, setCurrentPage] = useState(0);
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('darkMode');
+    return saved === 'true';
+  });
   const [liveMessages, setLiveMessages] = useState([]);
+  const [autoScroll, setAutoScroll] = useState(true);
   const itemsPerPage = 20;
 
   useEffect(() => {
@@ -42,6 +46,21 @@ function App() {
     
     return () => clearInterval(interval);
   }, [activeTab]);
+
+  // Persist dark mode preference
+  useEffect(() => {
+    localStorage.setItem('darkMode', darkMode);
+  }, [darkMode]);
+
+  // Auto-scroll to bottom when live messages update
+  useEffect(() => {
+    if (activeTab === 'live' && autoScroll) {
+      const container = document.querySelector('.log-entries');
+      if (container) {
+        container.scrollTop = container.scrollHeight;
+      }
+    }
+  }, [liveMessages, activeTab, autoScroll]);
 
   const fetchLogs = async () => {
     try {

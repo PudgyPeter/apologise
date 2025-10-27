@@ -576,6 +576,134 @@
   }
 }
 
+@media (max-width: 768px) {
+  .app {
+    padding: 10px;
+  }
+
+  .header {
+    padding: 16px;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .header h1 {
+    font-size: 20px;
+    margin-bottom: 0;
+  }
+
+  .stats {
+    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .stat {
+    font-size: 12px;
+  }
+
+  .dark-mode-toggle {
+    margin-left: 0;
+  }
+
+  .container {
+    grid-template-columns: 1fr;
+    height: auto;
+    gap: 10px;
+  }
+
+  .sidebar {
+    height: 300px;
+    padding: 12px;
+  }
+
+  .main-content {
+    height: calc(100vh - 400px);
+    min-height: 500px;
+  }
+
+  .tabs {
+    gap: 8px;
+  }
+
+  .tabs button {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .tabs button svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .search-box {
+    flex-direction: column;
+  }
+
+  .search-box input {
+    width: 100%;
+  }
+
+  .search-box button {
+    width: 100%;
+  }
+
+  .log-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .log-item-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .discord-message {
+    padding: 8px;
+  }
+
+  .message-avatar img {
+    width: 32px;
+    height: 32px;
+  }
+
+  .message-avatar-spacer {
+    width: 32px;
+  }
+
+  .message-header {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .message-author {
+    font-size: 14px;
+  }
+
+  .message-timestamp,
+  .message-channel {
+    font-size: 11px;
+  }
+
+  .message-body {
+    font-size: 14px;
+  }
+
+  .attachment-image img {
+    max-width: 100%;
+  }
+
+  .pagination {
+    gap: 8px;
+  }
+
+  .pagination button {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+}
+
 /* Dark Mode Toggle Button */
 .dark-mode-toggle {
   background: rgba(255, 255, 255, 0.2);
