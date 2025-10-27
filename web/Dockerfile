@@ -1,4 +1,5 @@
 # Multi-stage build for React + Flask
+# Updated: 2025-10-28
 
 # Stage 1: Build React app
 FROM node:18-alpine AS frontend-build
