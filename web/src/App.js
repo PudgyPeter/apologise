@@ -92,7 +92,7 @@ function App() {
       const response = await axios.get(`/api/logs/${filename}`);
       setLogContent(response.data);
       setSelectedLog(filename);
-      setCurrentPage(0);
+      setDisplayCount(50);
     } catch (error) {
       console.error('Error fetching log content:', error);
     } finally {
@@ -111,7 +111,7 @@ function App() {
         max_results: 200 
       });
       setSearchResults(response.data.results);
-      setCurrentPage(0);
+      setDisplayCount(50);
     } catch (error) {
       console.error('Error searching logs:', error);
     } finally {
@@ -186,9 +186,10 @@ function App() {
   };
 
   const renderLogEntry = (entry, index) => {
+    const data = displayedData;
     const isGroupStart = index === 0 || 
-      paginatedData[index - 1].author !== entry.author ||
-      paginatedData[index - 1].channel !== entry.channel;
+      data[index - 1].author !== entry.author ||
+      data[index - 1].channel !== entry.channel;
     
     return (
       <div key={index} className={`discord-message ${isGroupStart ? 'group-start' : ''}`}>
@@ -398,7 +399,7 @@ function App() {
             </button>
             <button
               className={activeTab === 'live' ? 'active' : ''}
-              onClick={() => { setActiveTab('live'); setCurrentPage(0); }}
+              onClick={() => { setActiveTab('live'); setDisplayCount(50); }}
             >
               <MessageSquare size={18} />
               Live Feed
