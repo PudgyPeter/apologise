@@ -14,14 +14,6 @@ build_folder = os.path.join(os.path.dirname(__file__), 'build')
 app = Flask(__name__, static_folder=build_folder, static_url_path='')
 CORS(app)
 
-# Debug: Print paths on startup
-print(f"Current working directory: {os.getcwd()}")
-print(f"Script location: {os.path.dirname(__file__)}")
-print(f"Build folder path: {build_folder}")
-print(f"Build folder exists: {os.path.exists(build_folder)}")
-print(f"Files in /app: {os.listdir('/app')}")
-if os.path.exists(build_folder):
-    print(f"Build folder contents: {os.listdir(build_folder)}")
 
 # --- PATHS (same as bot.py) ---
 RAILWAY_DIR = pathlib.Path("/mnt/data")
@@ -36,6 +28,8 @@ elif RAILWAY_APP_DIR.exists() and os.access(RAILWAY_APP_DIR, os.W_OK):
 else:
     LOCAL_DIR.mkdir(parents=True, exist_ok=True)
     BASE_LOG_DIR = LOCAL_DIR
+
+LIVE_MESSAGES_FILE = BASE_LOG_DIR / "live_messages.json"
 
 def load_log(log_path: pathlib.Path):
     """Load a JSON log file"""
@@ -162,6 +156,19 @@ def get_stats():
         "custom_logs": custom_logs,
         "total_messages": total_messages
     })
+
+@app.route('/api/live', methods=['GET'])
+def get_live_messages():
+    """Get live messages (last 100)"""
+    try:
+        if not LIVE_MESSAGES_FILE.exists():
+            return jsonify([])
+        
+        messages = load_log(LIVE_MESSAGES_FILE)
+        # Return last 100 messages
+        return jsonify(messages[-100:])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/health', methods=['GET'])
 def health():

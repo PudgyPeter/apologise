@@ -34,6 +34,9 @@ else:
     BASE_LOG_DIR = LOCAL_DIR
 BASE_LOG_DIR.mkdir(parents=True, exist_ok=True)
 
+LIVE_MESSAGES_FILE = BASE_LOG_DIR / "live_messages.json"
+MAX_LIVE_MESSAGES = 500  # Keep last 500 messages
+
 # --- DAILY LOG HELPERS ---
 def get_daily_log_path() -> pathlib.Path:
     today_str = datetime.utcnow().strftime("logs_%Y-%m-%d.json")
@@ -48,6 +51,18 @@ def load_log(log_path: pathlib.Path):
         log_path.write_text("[]", encoding="utf-8")
         return []
 
+def append_to_live_messages(entry: dict):
+    """Append message to live feed (keeps last MAX_LIVE_MESSAGES)"""
+    try:
+        messages = load_log(LIVE_MESSAGES_FILE)
+        messages.append(entry)
+        # Keep only last MAX_LIVE_MESSAGES
+        messages = messages[-MAX_LIVE_MESSAGES:]
+        with open(LIVE_MESSAGES_FILE, "w", encoding="utf-8") as f:
+            json.dump(messages, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        print(f"[💥] Live messages error: {e}")
+
 def append_log(entry: dict):
     try:
         log_path = get_daily_log_path()
@@ -58,6 +73,7 @@ def append_log(entry: dict):
     except Exception as e:
         print(f"[💥] JSON logging error: {e}")
     append_log_text(entry)
+    append_to_live_messages(entry)  # Also add to live feed
 
 def append_log_text(entry: dict):
     log_file_txt = get_daily_log_path().with_suffix(".txt")
@@ -162,6 +178,8 @@ async def build_entry_from_message(message: discord.Message):
         "message_id": message.id,
         "author": str(message.author),
         "author_display": message.author.display_name,
+        "author_id": message.author.id,
+        "avatar_url": message.author.display_avatar.url,
         "content": message.content or "",
         "created_at": message.created_at,
         "created_at_iso": message.created_at.isoformat(),

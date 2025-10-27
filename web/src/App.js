@@ -22,15 +22,26 @@ function App() {
   const [searchResults, setSearchResults] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('logs'); // 'logs' or 'search'
+  const [activeTab, setActiveTab] = useState('logs'); // 'logs', 'search', or 'live'
   const [currentPage, setCurrentPage] = useState(0);
   const [darkMode, setDarkMode] = useState(false);
+  const [liveMessages, setLiveMessages] = useState([]);
   const itemsPerPage = 20;
 
   useEffect(() => {
     fetchLogs();
     fetchStats();
-  }, []);
+    fetchLiveMessages();
+    
+    // Auto-refresh live messages every 5 seconds
+    const interval = setInterval(() => {
+      if (activeTab === 'live') {
+        fetchLiveMessages();
+      }
+    }, 5000);
+    
+    return () => clearInterval(interval);
+  }, [activeTab]);
 
   const fetchLogs = async () => {
     try {
@@ -47,6 +58,15 @@ function App() {
       setStats(response.data);
     } catch (error) {
       console.error('Error fetching stats:', error);
+    }
+  };
+
+  const fetchLiveMessages = async () => {
+    try {
+      const response = await axios.get('/api/live');
+      setLiveMessages(response.data);
+    } catch (error) {
+      console.error('Error fetching live messages:', error);
     }
   };
 
@@ -133,13 +153,17 @@ function App() {
     return emojis[type] || '💬';
   };
 
-  const getAvatarUrl = (author) => {
-    // Generate a consistent color based on username
+  const getAvatarUrl = (entry) => {
+    // Use real Discord avatar if available
+    if (entry.avatar_url) {
+      return entry.avatar_url;
+    }
+    
+    // Fallback to generated avatar
+    const author = entry.author || entry.author_display || 'Unknown';
     const hash = author.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     const colors = ['#5865F2', '#57F287', '#FEE75C', '#EB459E', '#ED4245', '#3BA55D'];
     const color = colors[hash % colors.length];
-    
-    // Create initials from username
     const initials = author.split('#')[0].substring(0, 2).toUpperCase();
     
     return `https://ui-avatars.com/api/?name=${initials}&background=${color.substring(1)}&color=fff&size=128`;
@@ -154,7 +178,7 @@ function App() {
       <div key={index} className={`discord-message ${isGroupStart ? 'group-start' : ''}`}>
         {isGroupStart && (
           <div className="message-avatar">
-            <img src={getAvatarUrl(entry.author)} alt={entry.author} />
+            <img src={getAvatarUrl(entry)} alt={entry.author} />
           </div>
         )}
         {!isGroupStart && <div className="message-avatar-spacer"></div>}
@@ -243,12 +267,14 @@ function App() {
     );
   };
 
-  const totalPages = Math.ceil(
-    (activeTab === 'search' ? searchResults.length : logContent.length) / itemsPerPage
-  );
+  const getDataForTab = () => {
+    if (activeTab === 'search') return searchResults;
+    if (activeTab === 'live') return liveMessages;
+    return logContent;
+  };
 
-  const paginatedData = (activeTab === 'search' ? searchResults : logContent)
-    .slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage);
+  const totalPages = Math.ceil(getDataForTab().length / itemsPerPage);
+  const paginatedData = getDataForTab().slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage);
 
   return (
     <div className={`app ${darkMode ? 'dark-mode' : ''}`}>
@@ -346,6 +372,13 @@ function App() {
             >
               <FileText size={18} />
               Log Viewer
+            </button>
+            <button
+              className={activeTab === 'live' ? 'active' : ''}
+              onClick={() => { setActiveTab('live'); setCurrentPage(0); }}
+            >
+              <MessageSquare size={18} />
+              Live Feed
             </button>
             <button
               className={activeTab === 'search' ? 'active' : ''}

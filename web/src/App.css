@@ -595,128 +595,197 @@
 
 /* Dark Mode Styles */
 .app.dark-mode {
-  background: #1a202c;
-  color: #e2e8f0;
+  background: #1e1e2e;
+  color: #cdd6f4;
 }
 
 .dark-mode .header {
-  background: #2d3748;
+  background: #313244;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
 }
 
 .dark-mode .header h1 {
-  color: #e2e8f0;
+  color: #cdd6f4;
 }
 
 .dark-mode .stat {
-  color: #cbd5e0;
+  color: #bac2de;
 }
 
 .dark-mode .sidebar {
-  background: #2d3748;
+  background: #313244;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
 }
 
 .dark-mode .main-content {
-  background: #2d3748;
+  background: #313244;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
 }
 
 .dark-mode .search-box input {
-  background: #4a5568;
-  border-color: #718096;
-  color: #e2e8f0;
+  background: #45475a;
+  border-color: #585b70;
+  color: #cdd6f4;
 }
 
 .dark-mode .search-box input::placeholder {
-  color: #a0aec0;
+  color: #7f849c;
 }
 
 .dark-mode .search-box button {
-  background: #4a5568;
-  color: #e2e8f0;
+  background: #45475a;
+  color: #cdd6f4;
 }
 
 .dark-mode .search-box button:hover {
-  background: #718096;
+  background: #585b70;
 }
 
 .dark-mode .log-list {
-  background: #2d3748;
+  background: #313244;
+}
+
+.dark-mode .log-list-header h3 {
+  color: #cdd6f4;
 }
 
 .dark-mode .log-item {
-  background: #4a5568;
-  border-color: #718096;
-  color: #e2e8f0;
+  background: #45475a;
+  border-color: #585b70;
+  color: #cdd6f4;
 }
 
 .dark-mode .log-item:hover {
-  background: #718096;
+  background: #585b70;
 }
 
 .dark-mode .log-item.active {
-  background: #667eea;
+  background: #89b4fa;
+  color: #1e1e2e;
 }
 
 .dark-mode .log-item-size {
-  color: #a0aec0;
+  color: #9399b2;
+}
+
+.dark-mode .tabs button {
+  color: #9399b2;
+}
+
+.dark-mode .tabs button.active {
+  color: #89b4fa;
+  border-bottom-color: #89b4fa;
+}
+
+.dark-mode .tabs button:hover {
+  color: #cdd6f4;
 }
 
 .dark-mode .discord-message:hover {
-  background: #4a5568;
+  background: #45475a;
 }
 
 .dark-mode .message-author {
-  color: #e2e8f0;
+  color: #89b4fa;
+}
+
+.dark-mode .message-timestamp {
+  color: #7f849c;
+}
+
+.dark-mode .message-channel {
+  color: #94e2d5;
 }
 
 .dark-mode .message-body {
-  color: #cbd5e0;
+  color: #cdd6f4;
+}
+
+.dark-mode .message-text {
+  color: #cdd6f4;
 }
 
 .dark-mode .content-header {
-  background: #4a5568;
-  border-bottom-color: #718096;
-  color: #e2e8f0;
+  background: #45475a;
+  border-bottom-color: #585b70;
+  color: #cdd6f4;
 }
 
 .dark-mode .edit-before {
-  background: #744210;
-  border-left-color: #dd6b20;
+  background: #45475a;
+  border-left-color: #f38ba8;
 }
 
 .dark-mode .edit-after {
-  background: #22543d;
-  border-left-color: #38a169;
+  background: #45475a;
+  border-left-color: #a6e3a1;
+}
+
+.dark-mode .edit-label {
+  color: #f38ba8;
+}
+
+.dark-mode .edit-after .edit-label {
+  color: #a6e3a1;
 }
 
 .dark-mode .attachment-link {
-  background: #4a5568;
-  color: #90cdf4;
+  background: #45475a;
+  color: #89dceb;
+  border: 1px solid #585b70;
 }
 
 .dark-mode .attachment-link:hover {
-  background: #718096;
+  background: #585b70;
+  border-color: #89dceb;
+}
+
+.dark-mode .attachment-image img,
+.dark-mode .attachment-video video {
+  border: 1px solid #585b70;
 }
 
 .dark-mode .reaction {
-  background: #4a5568;
-  border-color: #718096;
+  background: #45475a;
+  border-color: #585b70;
 }
 
 .dark-mode .reaction:hover {
-  background: #718096;
-  border-color: #667eea;
+  background: #585b70;
+  border-color: #89b4fa;
+}
+
+.dark-mode .message-reply {
+  border-left-color: #585b70;
+}
+
+.dark-mode .reply-author {
+  color: #89b4fa;
+}
+
+.dark-mode .reply-text {
+  color: #9399b2;
 }
 
 .dark-mode .pagination button {
-  background: #4a5568;
-  color: #e2e8f0;
+  background: #45475a;
+  color: #cdd6f4;
+  border-color: #585b70;
 }
 
 .dark-mode .pagination button:hover:not(:disabled) {
-  background: #667eea;
+  background: #89b4fa;
+  color: #1e1e2e;
+  border-color: #89b4fa;
 }
 
 .dark-mode .pagination button:disabled {
-  background: #2d3748;
-  color: #718096;
+  background: #313244;
+  color: #585b70;
+  border-color: #45475a;
+}
+
+.dark-mode .message-type-badge {
+  background: #89b4fa;
+  color: #1e1e2e;
 }
