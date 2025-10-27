@@ -66,6 +66,7 @@ def append_to_live_messages(entry: dict):
         if 'created_at' in entry_copy and hasattr(entry_copy['created_at'], 'isoformat'):
             entry_copy['created_at'] = entry_copy['created_at'].isoformat()
         
+        print(f"[🔴 LIVE] Sending entry with role_color: {entry_copy.get('role_color')}")
         response = requests.post(endpoint, json=entry_copy, timeout=5)
         
         if response.status_code == 200:

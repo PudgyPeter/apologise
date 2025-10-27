@@ -41,7 +41,38 @@ print(f"[✅ PATH] Final LIVE_MESSAGES_FILE: {LIVE_MESSAGES_FILE}")
 
 # In-memory storage for live messages (since volumes can't be shared)
 live_messages_cache = []
-MAX_LIVE_CACHE = 500
+MAX_LIVE_CACHE = 5000  # Store full day of messages
+last_reset_date = None
+
+def get_today_log_path():
+    """Get today's log file path"""
+    from datetime import datetime
+    today_str = datetime.utcnow().strftime("logs_%Y-%m-%d.json")
+    return BASE_LOG_DIR / today_str
+
+def load_today_into_cache():
+    """Load today's log file into the live cache"""
+    global live_messages_cache, last_reset_date
+    from datetime import datetime
+    
+    today = datetime.utcnow().date()
+    
+    # Check if we need to reset (new day)
+    if last_reset_date and last_reset_date != today:
+        print(f"[🔄 CACHE] New day detected, clearing cache")
+        live_messages_cache = []
+    
+    last_reset_date = today
+    
+    # Load today's log if it exists
+    today_log = get_today_log_path()
+    if today_log.exists():
+        try:
+            messages = load_log(today_log)
+            live_messages_cache = messages[-MAX_LIVE_CACHE:]
+            print(f"[✅ CACHE] Loaded {len(live_messages_cache)} messages from today's log")
+        except Exception as e:
+            print(f"[💥 CACHE] Error loading today's log: {e}")
 
 def load_log(log_path: pathlib.Path):
     """Load a JSON log file"""
@@ -57,6 +88,9 @@ def fuzzy_contains(text, keyword, tolerance=2):
     text = (text or "").lower()
     keyword = (keyword or "").lower()
     return keyword in text
+
+# Load today's log into cache on startup
+load_today_into_cache()
 
 # --- API ENDPOINTS ---
 
@@ -173,8 +207,11 @@ def get_stats():
 def get_live_messages():
     """Get live messages from in-memory cache"""
     try:
+        # Check if we need to reset for a new day
+        load_today_into_cache()
+        
         print(f"[🔴 API] Returning {len(live_messages_cache)} cached messages")
-        return jsonify(live_messages_cache[-100:])
+        return jsonify(live_messages_cache)
     except Exception as e:
         print(f"[💥 API] Error in get_live_messages: {e}")
         return jsonify({"error": str(e)}), 500
