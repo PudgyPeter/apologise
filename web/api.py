@@ -161,13 +161,24 @@ def get_stats():
 def get_live_messages():
     """Get live messages (last 100)"""
     try:
+        print(f"[🔴 API] Live messages file path: {LIVE_MESSAGES_FILE}")
+        print(f"[🔴 API] File exists: {LIVE_MESSAGES_FILE.exists()}")
+        
         if not LIVE_MESSAGES_FILE.exists():
+            print(f"[🔴 API] File doesn't exist, returning empty array")
             return jsonify([])
         
         messages = load_log(LIVE_MESSAGES_FILE)
+        print(f"[🔴 API] Loaded {len(messages)} messages from file")
+        
         # Return last 100 messages
-        return jsonify(messages[-100:])
+        result = messages[-100:]
+        print(f"[🔴 API] Returning {len(result)} messages")
+        return jsonify(result)
     except Exception as e:
+        print(f"[💥 API] Error in get_live_messages: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/health', methods=['GET'])

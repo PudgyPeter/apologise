@@ -54,14 +54,21 @@ def load_log(log_path: pathlib.Path):
 def append_to_live_messages(entry: dict):
     """Append message to live feed (keeps last MAX_LIVE_MESSAGES)"""
     try:
+        print(f"[🔴 LIVE] Appending to live messages file: {LIVE_MESSAGES_FILE}")
+        print(f"[🔴 LIVE] File exists: {LIVE_MESSAGES_FILE.exists()}")
         messages = load_log(LIVE_MESSAGES_FILE)
+        print(f"[🔴 LIVE] Current message count: {len(messages)}")
         messages.append(entry)
         # Keep only last MAX_LIVE_MESSAGES
         messages = messages[-MAX_LIVE_MESSAGES:]
+        print(f"[🔴 LIVE] Writing {len(messages)} messages to file")
         with open(LIVE_MESSAGES_FILE, "w", encoding="utf-8") as f:
             json.dump(messages, f, indent=2, ensure_ascii=False)
+        print(f"[🔴 LIVE] Successfully wrote to live messages file")
     except Exception as e:
         print(f"[💥] Live messages error: {e}")
+        import traceback
+        traceback.print_exc()
 
 def append_log(entry: dict):
     try:
