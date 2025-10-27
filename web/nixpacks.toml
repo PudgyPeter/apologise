@@ -1,17 +1,15 @@
 [phases.setup]
-nixPkgs = [
-  "nodejs_18",
-  "python310",
-  "python310Packages.flask",
-  "python310Packages.flask-cors",
-  "python310Packages.gunicorn"
-]
+nixPkgs = ["nodejs_18", "python310", "python310Packages.pip", "python310Packages.virtualenv"]
 
 [phases.install]
-cmds = ["npm install --legacy-peer-deps"]
+cmds = [
+  "npm install --legacy-peer-deps",
+  "python3 -m venv /tmp/venv",
+  ". /tmp/venv/bin/activate && pip install -r requirements.txt"
+]
 
 [phases.build]
 cmds = ["npm run build"]
 
 [start]
-cmd = "gunicorn api:app --bind 0.0.0.0:$PORT"
+cmd = ". /tmp/venv/bin/activate && gunicorn api:app --bind 0.0.0.0:$PORT"
