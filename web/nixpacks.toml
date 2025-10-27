@@ -1,11 +1,14 @@
 [phases.setup]
-nixPkgs = ["nodejs_18", "python310", "python310Packages.pip"]
+nixPkgs = [
+  "nodejs_18",
+  "python310",
+  "python310Packages.flask",
+  "python310Packages.flask-cors",
+  "python310Packages.gunicorn"
+]
 
 [phases.install]
-cmds = [
-  "npm install --legacy-peer-deps",
-  "python3 -m pip install -r requirements.txt"
-]
+cmds = ["npm install --legacy-peer-deps"]
 
 [phases.build]
 cmds = ["npm run build"]
