@@ -74,8 +74,8 @@ def append_to_live_messages(entry: dict):
             print(f"[💥 LIVE] API returned status {response.status_code}: {response.text}")
     except Exception as e:
         print(f"[💥] Live messages error: {e}")
-        import traceback
-        traceback.print_exc()
+        # Don't print full traceback to avoid spam, just log the error
+        pass
 
 def append_log(entry: dict):
     try:
