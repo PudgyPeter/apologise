@@ -7,7 +7,6 @@ import {
   Trash2, 
   Calendar,
   MessageSquare,
-  BarChart3,
   RefreshCw,
   ChevronLeft,
   ChevronRight
