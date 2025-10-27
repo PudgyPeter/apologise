@@ -39,6 +39,10 @@ LIVE_MESSAGES_FILE = BASE_LOG_DIR / "live_messages.json"
 print(f"[✅ PATH] Final BASE_LOG_DIR: {BASE_LOG_DIR}")
 print(f"[✅ PATH] Final LIVE_MESSAGES_FILE: {LIVE_MESSAGES_FILE}")
 
+# In-memory storage for live messages (since volumes can't be shared)
+live_messages_cache = []
+MAX_LIVE_CACHE = 500
+
 def load_log(log_path: pathlib.Path):
     """Load a JSON log file"""
     if not log_path.exists():
@@ -167,26 +171,27 @@ def get_stats():
 
 @app.route('/api/live', methods=['GET'])
 def get_live_messages():
-    """Get live messages (last 100)"""
+    """Get live messages from in-memory cache"""
     try:
-        print(f"[🔴 API] Live messages file path: {LIVE_MESSAGES_FILE}")
-        print(f"[🔴 API] File exists: {LIVE_MESSAGES_FILE.exists()}")
-        
-        if not LIVE_MESSAGES_FILE.exists():
-            print(f"[🔴 API] File doesn't exist, returning empty array")
-            return jsonify([])
-        
-        messages = load_log(LIVE_MESSAGES_FILE)
-        print(f"[🔴 API] Loaded {len(messages)} messages from file")
-        
-        # Return last 100 messages
-        result = messages[-100:]
-        print(f"[🔴 API] Returning {len(result)} messages")
-        return jsonify(result)
+        print(f"[🔴 API] Returning {len(live_messages_cache)} cached messages")
+        return jsonify(live_messages_cache[-100:])
     except Exception as e:
         print(f"[💥 API] Error in get_live_messages: {e}")
-        import traceback
-        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/live', methods=['POST'])
+def add_live_message():
+    """Receive live message from bot"""
+    global live_messages_cache
+    try:
+        message = request.get_json()
+        live_messages_cache.append(message)
+        # Keep only last MAX_LIVE_CACHE messages
+        live_messages_cache = live_messages_cache[-MAX_LIVE_CACHE:]
+        print(f"[🔴 API] Added message, cache now has {len(live_messages_cache)} messages")
+        return jsonify({"status": "ok"}), 200
+    except Exception as e:
+        print(f"[💥 API] Error adding live message: {e}")
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/health', methods=['GET'])

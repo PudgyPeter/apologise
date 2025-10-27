@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 import re
 import asyncio
 from discord.ui import Button, View
+import requests
 
 # --- CONFIGURATION ---
 TOKEN = os.getenv("TOKEN")
@@ -52,19 +53,25 @@ def load_log(log_path: pathlib.Path):
         return []
 
 def append_to_live_messages(entry: dict):
-    """Append message to live feed (keeps last MAX_LIVE_MESSAGES)"""
+    """Send message to web API for live feed"""
     try:
-        print(f"[🔴 LIVE] Appending to live messages file: {LIVE_MESSAGES_FILE}")
-        print(f"[🔴 LIVE] File exists: {LIVE_MESSAGES_FILE.exists()}")
-        messages = load_log(LIVE_MESSAGES_FILE)
-        print(f"[🔴 LIVE] Current message count: {len(messages)}")
-        messages.append(entry)
-        # Keep only last MAX_LIVE_MESSAGES
-        messages = messages[-MAX_LIVE_MESSAGES:]
-        print(f"[🔴 LIVE] Writing {len(messages)} messages to file")
-        with open(LIVE_MESSAGES_FILE, "w", encoding="utf-8") as f:
-            json.dump(messages, f, indent=2, ensure_ascii=False)
-        print(f"[🔴 LIVE] Successfully wrote to live messages file")
+        # Get the web API URL from environment or use default
+        api_url = os.getenv("WEB_API_URL", "https://apologise-production.up.railway.app")
+        endpoint = f"{api_url}/api/live"
+        
+        print(f"[🔴 LIVE] Sending message to API: {endpoint}")
+        
+        # Convert datetime objects to ISO strings for JSON serialization
+        entry_copy = entry.copy()
+        if 'created_at' in entry_copy and hasattr(entry_copy['created_at'], 'isoformat'):
+            entry_copy['created_at'] = entry_copy['created_at'].isoformat()
+        
+        response = requests.post(endpoint, json=entry_copy, timeout=5)
+        
+        if response.status_code == 200:
+            print(f"[🔴 LIVE] Successfully sent message to API")
+        else:
+            print(f"[💥 LIVE] API returned status {response.status_code}: {response.text}")
     except Exception as e:
         print(f"[💥] Live messages error: {e}")
         import traceback
