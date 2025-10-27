@@ -39,27 +39,33 @@ LIVE_MESSAGES_FILE = BASE_LOG_DIR / "live_messages.json"
 print(f"[✅ PATH] Final BASE_LOG_DIR: {BASE_LOG_DIR}")
 print(f"[✅ PATH] Final LIVE_MESSAGES_FILE: {LIVE_MESSAGES_FILE}")
 
+# Timezone configuration
+LOCAL_TIMEZONE_OFFSET = 11  # UTC+11 for Australian Eastern Daylight Time
+
 # In-memory storage for live messages (since volumes can't be shared)
 live_messages_cache = []
 MAX_LIVE_CACHE = 5000  # Store full day of messages
 last_reset_date = None
 
 def get_today_log_path():
-    """Get today's log file path"""
-    from datetime import datetime
-    today_str = datetime.utcnow().strftime("logs_%Y-%m-%d.json")
+    """Get today's log file path in local timezone"""
+    from datetime import datetime, timedelta
+    local_time = datetime.utcnow() + timedelta(hours=LOCAL_TIMEZONE_OFFSET)
+    today_str = local_time.strftime("logs_%Y-%m-%d.json")
     return BASE_LOG_DIR / today_str
 
 def load_today_into_cache():
     """Load today's log file into the live cache"""
     global live_messages_cache, last_reset_date
-    from datetime import datetime
+    from datetime import datetime, timedelta
     
-    today = datetime.utcnow().date()
+    # Get today's date in local timezone
+    local_time = datetime.utcnow() + timedelta(hours=LOCAL_TIMEZONE_OFFSET)
+    today = local_time.date()
     
-    # Check if we need to reset (new day)
+    # Check if we need to reset (new day in local timezone)
     if last_reset_date and last_reset_date != today:
-        print(f"[🔄 CACHE] New day detected, clearing cache")
+        print(f"[🔄 CACHE] New day detected (local time), clearing cache")
         live_messages_cache = []
     
     last_reset_date = today
@@ -210,8 +216,10 @@ def get_live_messages():
         # Check if we need to reset for a new day
         load_today_into_cache()
         
-        print(f"[🔴 API] Returning {len(live_messages_cache)} cached messages")
-        return jsonify(live_messages_cache)
+        # Return last 500 messages to avoid overwhelming the browser
+        recent_messages = live_messages_cache[-500:]
+        print(f"[🔴 API] Returning {len(recent_messages)} of {len(live_messages_cache)} cached messages")
+        return jsonify(recent_messages)
     except Exception as e:
         print(f"[💥 API] Error in get_live_messages: {e}")
         return jsonify({"error": str(e)}), 500

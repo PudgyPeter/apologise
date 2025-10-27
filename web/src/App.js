@@ -405,7 +405,13 @@ function App() {
             </button>
             <button
               className={activeTab === 'live' ? 'active' : ''}
-              onClick={() => { setActiveTab('live'); setDisplayCount(50); }}
+              onClick={() => { 
+                setActiveTab('live'); 
+                setDisplayCount(50);
+                if (liveMessages.length === 0) {
+                  fetchLiveMessages();
+                }
+              }}
             >
               <MessageSquare size={18} />
               Live Feed

@@ -19,6 +19,7 @@ FUZZY_TOLERANCE = 2
 GROUP_WINDOW = 10  # seconds to group messages
 GROUP_PRUNE = 60   # seconds after which an inactive group is pruned
 MAX_SEARCH_RESULTS = 200
+LOCAL_TIMEZONE_OFFSET = 11  # UTC+11 for Australian Eastern Daylight Time
 
 # --- PATHS ---
 RAILWAY_DIR = pathlib.Path("/mnt/data")
@@ -40,7 +41,9 @@ MAX_LIVE_MESSAGES = 500  # Keep last 500 messages
 
 # --- DAILY LOG HELPERS ---
 def get_daily_log_path() -> pathlib.Path:
-    today_str = datetime.utcnow().strftime("logs_%Y-%m-%d.json")
+    # Use local timezone for daily log files
+    local_time = datetime.utcnow() + timedelta(hours=LOCAL_TIMEZONE_OFFSET)
+    today_str = local_time.strftime("logs_%Y-%m-%d.json")
     return BASE_LOG_DIR / today_str
 
 def load_log(log_path: pathlib.Path):
