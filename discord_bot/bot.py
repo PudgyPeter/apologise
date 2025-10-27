@@ -376,6 +376,9 @@ async def on_message(message: discord.Message):
     entry = {
         "id": message.id,
         "author": str(message.author),
+        "author_display": message.author.display_name,
+        "author_id": message.author.id,
+        "avatar_url": message.author.display_avatar.url,
         "content": message.content,
         "channel": message.channel.name,
         "created_at": message.created_at.isoformat(),
@@ -414,6 +417,9 @@ async def on_message_edit(before, after):
     entry = {
         "id": before.id,
         "author": str(before.author),
+        "author_display": before.author.display_name,
+        "author_id": before.author.id,
+        "avatar_url": before.author.display_avatar.url,
         "content": after.content,
         "channel": before.channel.name,
         "created_at": datetime.utcnow().isoformat(),
@@ -479,6 +485,9 @@ async def on_message_delete(message):
     entry = {
         "id": message.id,
         "author": str(message.author),
+        "author_display": message.author.display_name,
+        "author_id": message.author.id,
+        "avatar_url": message.author.display_avatar.url,
         "content": message.content,
         "channel": message.channel.name,
         "created_at": datetime.utcnow().isoformat(),
@@ -581,6 +590,9 @@ async def update_reaction_on_embed(message: discord.Message, reaction: discord.R
         entry = {
             "id": message.id,
             "author": str(message.author),
+            "author_display": message.author.display_name,
+            "author_id": message.author.id,
+            "avatar_url": message.author.display_avatar.url,
             "content": message.content,
             "channel": message.channel.name,
             "created_at": datetime.utcnow().isoformat(),
