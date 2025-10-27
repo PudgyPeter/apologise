@@ -1,10 +1,11 @@
 [phases.setup]
-nixPkgs = ["nodejs", "python310"]
+nixPkgs = ["nodejs", "python310", "python310Packages.pip"]
 
 [phases.install]
 cmds = [
   "npm install",
-  "pip install -r requirements.txt"
+  "python -m pip install --upgrade pip",
+  "python -m pip install -r requirements.txt"
 ]
 
 [phases.build]
