@@ -21,15 +21,23 @@ RAILWAY_APP_DIR = pathlib.Path("/app/data")
 LOCAL_DIR = pathlib.Path(os.getcwd()).parent / "data"
 
 # Check Railway paths first (both common mount points)
+print(f"[🔍 PATH] Checking /mnt/data exists: {RAILWAY_DIR.exists()}, writable: {os.access(RAILWAY_DIR, os.W_OK) if RAILWAY_DIR.exists() else False}")
+print(f"[🔍 PATH] Checking /app/data exists: {RAILWAY_APP_DIR.exists()}, writable: {os.access(RAILWAY_APP_DIR, os.W_OK) if RAILWAY_APP_DIR.exists() else False}")
+
 if RAILWAY_DIR.exists() and os.access(RAILWAY_DIR, os.W_OK):
     BASE_LOG_DIR = RAILWAY_DIR
+    print(f"[✅ PATH] Using /mnt/data")
 elif RAILWAY_APP_DIR.exists() and os.access(RAILWAY_APP_DIR, os.W_OK):
     BASE_LOG_DIR = RAILWAY_APP_DIR
+    print(f"[✅ PATH] Using /app/data")
 else:
     LOCAL_DIR.mkdir(parents=True, exist_ok=True)
     BASE_LOG_DIR = LOCAL_DIR
+    print(f"[✅ PATH] Using local dir: {LOCAL_DIR}")
 
 LIVE_MESSAGES_FILE = BASE_LOG_DIR / "live_messages.json"
+print(f"[✅ PATH] Final BASE_LOG_DIR: {BASE_LOG_DIR}")
+print(f"[✅ PATH] Final LIVE_MESSAGES_FILE: {LIVE_MESSAGES_FILE}")
 
 def load_log(log_path: pathlib.Path):
     """Load a JSON log file"""
