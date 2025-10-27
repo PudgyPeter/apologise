@@ -34,10 +34,10 @@ Edit these in `.dark-mode` section (around line 596-792):
 
 ```css
 /* Background & Cards */
-background: #1e1e2e;           /* Page background */
-background: #313244;           /* Card backgrounds */
-background: #45475a;           /* Interactive elements */
-border-color: #585b70;         /* Borders */
+background: #2c2d32;           /* Page background */
+background: #323339;           /* Card backgrounds */
+background: #2c2d32;           /* Interactive elements */
+border-color: #2c2d32;         /* Borders */
 
 /* Text */
 color: #cdd6f4;                /* Main text */
