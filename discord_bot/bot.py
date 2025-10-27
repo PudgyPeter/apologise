@@ -21,9 +21,14 @@ MAX_SEARCH_RESULTS = 200
 
 # --- PATHS ---
 RAILWAY_DIR = pathlib.Path("/mnt/data")
+RAILWAY_APP_DIR = pathlib.Path("/app/data")
 LOCAL_DIR = pathlib.Path(os.getcwd()) / "data"
+
+# Check Railway paths first (both common mount points)
 if RAILWAY_DIR.exists() and os.access(RAILWAY_DIR, os.W_OK):
     BASE_LOG_DIR = RAILWAY_DIR
+elif RAILWAY_APP_DIR.exists() and os.access(RAILWAY_APP_DIR, os.W_OK):
+    BASE_LOG_DIR = RAILWAY_APP_DIR
 else:
     LOCAL_DIR.mkdir(parents=True, exist_ok=True)
     BASE_LOG_DIR = LOCAL_DIR

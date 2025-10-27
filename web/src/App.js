@@ -133,36 +133,115 @@ function App() {
     return emojis[type] || '💬';
   };
 
-  const renderLogEntry = (entry, index) => (
-    <div key={index} className="log-entry">
-      <div className="log-header">
-        <span className="log-emoji">{getTypeEmoji(entry.type)}</span>
-        <span className="log-author">{entry.author}</span>
-        <span className="log-channel">#{entry.channel}</span>
-        <span className="log-time">{formatTimestamp(entry.created_at)}</span>
-      </div>
-      <div className="log-content">
-        {entry.type === 'edit' && entry.before && (
-          <div className="log-edit">
-            <div className="edit-before">Before: {entry.before}</div>
-            <div className="edit-after">After: {entry.content}</div>
+  const getAvatarUrl = (author) => {
+    // Generate a consistent color based on username
+    const hash = author.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const colors = ['#5865F2', '#57F287', '#FEE75C', '#EB459E', '#ED4245', '#3BA55D'];
+    const color = colors[hash % colors.length];
+    
+    // Create initials from username
+    const initials = author.split('#')[0].substring(0, 2).toUpperCase();
+    
+    return `https://ui-avatars.com/api/?name=${initials}&background=${color.substring(1)}&color=fff&size=128`;
+  };
+
+  const renderLogEntry = (entry, index) => {
+    const isGroupStart = index === 0 || 
+      paginatedData[index - 1].author !== entry.author ||
+      paginatedData[index - 1].channel !== entry.channel;
+    
+    return (
+      <div key={index} className={`discord-message ${isGroupStart ? 'group-start' : ''}`}>
+        {isGroupStart && (
+          <div className="message-avatar">
+            <img src={getAvatarUrl(entry.author)} alt={entry.author} />
           </div>
         )}
-        {entry.type !== 'edit' && (
-          <div>{entry.content || '(no text)'}</div>
-        )}
-        {entry.attachments && entry.attachments.length > 0 && (
-          <div className="log-attachments">
-            {entry.attachments.map((url, i) => (
-              <a key={i} href={url} target="_blank" rel="noopener noreferrer">
-                📎 Attachment {i + 1}
-              </a>
-            ))}
+        {!isGroupStart && <div className="message-avatar-spacer"></div>}
+        
+        <div className="message-content-wrapper">
+          {isGroupStart && (
+            <div className="message-header">
+              <span className="message-author">{entry.author_display || entry.author}</span>
+              <span className="message-timestamp">{formatTimestamp(entry.created_at)}</span>
+              <span className="message-channel">#{entry.channel}</span>
+              {entry.type !== 'create' && (
+                <span className="message-type-badge">{getTypeEmoji(entry.type)} {entry.type}</span>
+              )}
+            </div>
+          )}
+          
+          <div className="message-body">
+            {entry.reply_preview && (
+              <div className="message-reply">
+                <div className="reply-bar"></div>
+                <div className="reply-content">
+                  <span className="reply-author">{entry.reply_preview.author}</span>
+                  <span className="reply-text">{entry.reply_preview.content}</span>
+                </div>
+              </div>
+            )}
+            
+            {entry.type === 'edit' && entry.before && (
+              <div className="message-edit">
+                <div className="edit-before">
+                  <span className="edit-label">Before:</span> {entry.before}
+                </div>
+                <div className="edit-after">
+                  <span className="edit-label">After:</span> {entry.content}
+                </div>
+              </div>
+            )}
+            
+            {entry.type !== 'edit' && (
+              <div className="message-text">{entry.content || '(no text)'}</div>
+            )}
+            
+            {entry.attachments && entry.attachments.length > 0 && (
+              <div className="message-attachments">
+                {entry.attachments.map((url, i) => {
+                  const isImage = /\.(gif|png|jpe?g|webp)$/i.test(url);
+                  const isVideo = /\.(mp4|mov|webm)$/i.test(url);
+                  
+                  if (isImage) {
+                    return (
+                      <div key={i} className="attachment-image">
+                        <img src={url} alt={`Attachment ${i + 1}`} />
+                      </div>
+                    );
+                  } else if (isVideo) {
+                    return (
+                      <div key={i} className="attachment-video">
+                        <video controls src={url} />
+                      </div>
+                    );
+                  } else {
+                    const filename = url.split('/').pop().split('?')[0];
+                    return (
+                      <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="attachment-link">
+                        📎 {filename}
+                      </a>
+                    );
+                  }
+                })}
+              </div>
+            )}
+            
+            {entry.reactions && Object.keys(entry.reactions).length > 0 && (
+              <div className="message-reactions">
+                {Object.entries(entry.reactions).map(([emoji, info]) => (
+                  <div key={emoji} className="reaction">
+                    <span className="reaction-emoji">{emoji}</span>
+                    <span className="reaction-count">{info.count}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const totalPages = Math.ceil(
     (activeTab === 'search' ? searchResults.length : logContent.length) / itemsPerPage

@@ -249,85 +249,227 @@
 .log-entries {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 0;
 }
 
-.log-entry {
-  background: #f8f9fa;
-  border-radius: 8px;
-  padding: 16px;
-  border-left: 4px solid #667eea;
-}
-
-.log-header {
+/* Discord-like message styling */
+.discord-message {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 8px;
-  font-size: 14px;
+  padding: 2px 16px;
+  transition: background 0.1s;
+  position: relative;
 }
 
-.log-emoji {
-  font-size: 18px;
+.discord-message:hover {
+  background: #f8f9fa;
 }
 
-.log-author {
+.discord-message.group-start {
+  margin-top: 16px;
+  padding-top: 8px;
+}
+
+.message-avatar {
+  width: 40px;
+  height: 40px;
+  margin-right: 16px;
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
+.message-avatar img {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+}
+
+.message-avatar-spacer {
+  width: 40px;
+  margin-right: 16px;
+  flex-shrink: 0;
+}
+
+.message-content-wrapper {
+  flex: 1;
+  min-width: 0;
+}
+
+.message-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.message-author {
   font-weight: 600;
   color: #333;
+  font-size: 15px;
 }
 
-.log-channel {
+.message-timestamp {
+  color: #999;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.message-channel {
   color: #667eea;
+  font-size: 12px;
   font-weight: 500;
 }
 
-.log-time {
-  margin-left: auto;
-  color: #999;
-  font-size: 12px;
+.message-type-badge {
+  background: #667eea;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
 }
 
-.log-content {
-  color: #555;
-  line-height: 1.6;
+.message-body {
+  color: #2e3338;
+  line-height: 1.375;
+  font-size: 15px;
   word-wrap: break-word;
 }
 
-.log-edit {
+.message-text {
+  margin-bottom: 4px;
+}
+
+/* Reply styling */
+.message-reply {
+  display: flex;
+  margin-bottom: 8px;
+  padding-left: 4px;
+}
+
+.reply-bar {
+  width: 4px;
+  background: #667eea;
+  border-radius: 2px;
+  margin-right: 8px;
+}
+
+.reply-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+}
+
+.reply-author {
+  font-weight: 600;
+  color: #667eea;
+}
+
+.reply-text {
+  color: #666;
+}
+
+/* Edit styling */
+.message-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.edit-before,
+.edit-after {
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  border-left: 4px solid;
+}
+
+.edit-before {
+  background: #fff3e0;
+  border-left-color: #ff9800;
+}
+
+.edit-after {
+  background: #e8f5e9;
+  border-left-color: #4caf50;
+}
+
+.edit-label {
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  margin-right: 8px;
+  opacity: 0.7;
+}
+
+/* Attachments */
+.message-attachments {
+  margin-top: 8px;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.edit-before {
-  padding: 8px;
-  background: #ffebee;
+.attachment-image img,
+.attachment-video video {
+  max-width: 400px;
+  max-height: 300px;
   border-radius: 4px;
-  font-size: 13px;
+  cursor: pointer;
 }
 
-.edit-after {
-  padding: 8px;
-  background: #e8f5e9;
+.attachment-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  background: #f3f4f6;
   border-radius: 4px;
-  font-size: 13px;
-}
-
-.log-attachments {
-  margin-top: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.log-attachments a {
   color: #667eea;
   text-decoration: none;
-  font-size: 13px;
+  font-size: 14px;
+  max-width: fit-content;
+  transition: background 0.2s;
 }
 
-.log-attachments a:hover {
-  text-decoration: underline;
+.attachment-link:hover {
+  background: #e5e7eb;
+}
+
+/* Reactions */
+.message-reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.reaction {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.reaction:hover {
+  background: #e5e7eb;
+  border-color: #667eea;
+}
+
+.reaction-emoji {
+  font-size: 16px;
+}
+
+.reaction-count {
+  color: #666;
+  font-weight: 500;
+  font-size: 12px;
 }
 
 .loading {
