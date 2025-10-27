@@ -14,6 +14,14 @@ build_folder = os.path.join(os.path.dirname(__file__), 'build')
 app = Flask(__name__, static_folder=build_folder, static_url_path='')
 CORS(app)
 
+# Debug: Print paths on startup
+print(f"Current working directory: {os.getcwd()}")
+print(f"Script location: {os.path.dirname(__file__)}")
+print(f"Build folder path: {build_folder}")
+print(f"Build folder exists: {os.path.exists(build_folder)}")
+if os.path.exists(build_folder):
+    print(f"Build folder contents: {os.listdir(build_folder)}")
+
 # --- PATHS (same as bot.py) ---
 RAILWAY_DIR = pathlib.Path("/mnt/data")
 RAILWAY_APP_DIR = pathlib.Path("/app/data")
