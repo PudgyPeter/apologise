@@ -1,15 +1,17 @@
 [phases.setup]
-nixPkgs = ["nodejs", "python310", "python310Packages.pip", "python310Packages.setuptools"]
+nixPkgs = [
+  "nodejs", 
+  "python310",
+  "python310Packages.flask",
+  "python310Packages.flask-cors",
+  "python310Packages.gunicorn"
+]
 
 [phases.install]
-cmds = [
-  "npm install --legacy-peer-deps",
-  "python3 -m pip install --upgrade pip setuptools wheel",
-  "python3 -m pip install -r requirements.txt"
-]
+cmds = ["npm install --legacy-peer-deps"]
 
 [phases.build]
 cmds = ["npm run build"]
 
 [start]
-cmd = "python3 -m gunicorn api:app --bind 0.0.0.0:$PORT"
+cmd = "gunicorn api:app --bind 0.0.0.0:$PORT"
