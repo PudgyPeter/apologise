@@ -204,7 +204,9 @@ function App() {
         <div className="message-content-wrapper">
           {isGroupStart && (
             <div className="message-header">
-              <span className="message-author">{entry.author_display || entry.author}</span>
+              <span className="message-author" style={entry.role_color ? {color: entry.role_color} : {}}>
+                {entry.author_display || entry.author}
+              </span>
               <span className="message-timestamp">{formatTimestamp(entry.created_at)}</span>
               <span className="message-channel">#{entry.channel}</span>
               {entry.type !== 'create' && (

@@ -373,12 +373,19 @@ async def on_message(message: discord.Message):
     if message.author.bot or not message.guild:
         return
 
+    # Get role color
+    role_color = None
+    if message.guild and isinstance(message.author, discord.Member):
+        if message.author.top_role and message.author.top_role.color.value != 0:
+            role_color = f"#{message.author.top_role.color.value:06x}"
+    
     entry = {
         "id": message.id,
         "author": str(message.author),
         "author_display": message.author.display_name,
         "author_id": message.author.id,
         "avatar_url": message.author.display_avatar.url,
+        "role_color": role_color,
         "content": message.content,
         "channel": message.channel.name,
         "created_at": message.created_at.isoformat(),
@@ -414,12 +421,20 @@ async def on_message(message: discord.Message):
 async def on_message_edit(before, after):
     if before.author.bot:
         return
+    
+    # Get role color
+    role_color = None
+    if before.guild and isinstance(before.author, discord.Member):
+        if before.author.top_role and before.author.top_role.color.value != 0:
+            role_color = f"#{before.author.top_role.color.value:06x}"
+    
     entry = {
         "id": before.id,
         "author": str(before.author),
         "author_display": before.author.display_name,
         "author_id": before.author.id,
         "avatar_url": before.author.display_avatar.url,
+        "role_color": role_color,
         "content": after.content,
         "channel": before.channel.name,
         "created_at": datetime.utcnow().isoformat(),
@@ -482,12 +497,20 @@ async def on_message_edit(before, after):
 async def on_message_delete(message):
     if message.author.bot:
         return
+    
+    # Get role color
+    role_color = None
+    if message.guild and isinstance(message.author, discord.Member):
+        if message.author.top_role and message.author.top_role.color.value != 0:
+            role_color = f"#{message.author.top_role.color.value:06x}"
+    
     entry = {
         "id": message.id,
         "author": str(message.author),
         "author_display": message.author.display_name,
         "author_id": message.author.id,
         "avatar_url": message.author.display_avatar.url,
+        "role_color": role_color,
         "content": message.content,
         "channel": message.channel.name,
         "created_at": datetime.utcnow().isoformat(),
@@ -587,12 +610,19 @@ async def update_reaction_on_embed(message: discord.Message, reaction: discord.R
         except Exception as e:
             print(f"[💥] update reaction embed error: {e}")
     else:
+        # Get role color
+        role_color = None
+        if message.guild and isinstance(message.author, discord.Member):
+            if message.author.top_role and message.author.top_role.color.value != 0:
+                role_color = f"#{message.author.top_role.color.value:06x}"
+        
         entry = {
             "id": message.id,
             "author": str(message.author),
             "author_display": message.author.display_name,
             "author_id": message.author.id,
             "avatar_url": message.author.display_avatar.url,
+            "role_color": role_color,
             "content": message.content,
             "channel": message.channel.name,
             "created_at": datetime.utcnow().isoformat(),
