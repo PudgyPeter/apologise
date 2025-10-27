@@ -158,14 +158,29 @@ def health():
     """Health check endpoint"""
     return jsonify({"status": "ok", "timestamp": datetime.utcnow().isoformat()})
 
+# Catch-all route for React app (must be last!)
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve_react(path):
     """Serve React app for all non-API routes"""
+    # Skip API routes
+    if path.startswith('api/'):
+        return jsonify({"error": "Not found"}), 404
+    
+    # Serve static files
     if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
         return send_from_directory(app.static_folder, path)
-    else:
+    
+    # Serve index.html for all other routes
+    try:
         return send_from_directory(app.static_folder, 'index.html')
+    except Exception as e:
+        return jsonify({
+            "error": "Build folder not found",
+            "static_folder": app.static_folder,
+            "cwd": os.getcwd(),
+            "message": str(e)
+        }), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
