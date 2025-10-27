@@ -24,6 +24,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('logs'); // 'logs' or 'search'
   const [currentPage, setCurrentPage] = useState(0);
+  const [darkMode, setDarkMode] = useState(false);
   const itemsPerPage = 20;
 
   useEffect(() => {
@@ -250,7 +251,7 @@ function App() {
     .slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage);
 
   return (
-    <div className="app">
+    <div className={`app ${darkMode ? 'dark-mode' : ''}`}>
       <header className="header">
         <h1>📊 Discord Log Dashboard</h1>
         {stats && (
@@ -267,6 +268,13 @@ function App() {
               <MessageSquare size={20} />
               <span>{stats.total_messages.toLocaleString()} Messages</span>
             </div>
+            <button 
+              className="dark-mode-toggle" 
+              onClick={() => setDarkMode(!darkMode)}
+              title={darkMode ? 'Light Mode' : 'Dark Mode'}
+            >
+              {darkMode ? '☀️' : '🌙'}
+            </button>
           </div>
         )}
       </header>
