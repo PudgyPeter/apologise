@@ -19,6 +19,7 @@ print(f"Current working directory: {os.getcwd()}")
 print(f"Script location: {os.path.dirname(__file__)}")
 print(f"Build folder path: {build_folder}")
 print(f"Build folder exists: {os.path.exists(build_folder)}")
+print(f"Files in /app: {os.listdir('/app')}")
 if os.path.exists(build_folder):
     print(f"Build folder contents: {os.listdir(build_folder)}")
 
