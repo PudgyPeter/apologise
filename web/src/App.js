@@ -80,6 +80,7 @@ function App() {
   const fetchLiveMessages = async () => {
     try {
       const response = await axios.get('/api/live');
+      console.log('Live messages fetched:', response.data.length);
       setLiveMessages(response.data);
     } catch (error) {
       console.error('Error fetching live messages:', error);
@@ -294,8 +295,11 @@ function App() {
   const hasMore = getDataForTab().length > displayCount;
 
   const handleScroll = (e) => {
-    const bottom = e.target.scrollHeight - e.target.scrollTop <= e.target.clientHeight + 100;
-    if (bottom && hasMore) {
+    const { scrollTop, scrollHeight, clientHeight } = e.target;
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 200;
+    
+    if (isNearBottom && hasMore && !loading) {
+      console.log('Loading more messages...');
       setDisplayCount(prev => prev + 50);
     }
   };
@@ -433,7 +437,7 @@ function App() {
             </div>
           )}
 
-          {!loading && activeTab === 'live' && (
+          {!loading && activeTab === 'live' && liveMessages.length > 0 && (
             <div className="content-area">
               <div className="content-header">
                 <h2>Live Feed</h2>
@@ -443,6 +447,14 @@ function App() {
                 {displayedData.map((entry, index) => renderLogEntry(entry, index))}
                 {hasMore && <div className="loading-more">Scroll for more...</div>}
               </div>
+            </div>
+          )}
+
+          {!loading && activeTab === 'live' && liveMessages.length === 0 && (
+            <div className="empty-state">
+              <MessageSquare size={64} />
+              <h3>No live messages yet</h3>
+              <p>Messages will appear here as they are sent in Discord</p>
             </div>
           )}
 
