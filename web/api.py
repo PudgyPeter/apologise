@@ -10,7 +10,8 @@ from flask import Flask, jsonify, request, send_file, send_from_directory
 from flask_cors import CORS
 
 # Serve React build in production
-app = Flask(__name__, static_folder='build', static_url_path='')
+build_folder = os.path.join(os.path.dirname(__file__), 'build')
+app = Flask(__name__, static_folder=build_folder, static_url_path='')
 CORS(app)
 
 # --- PATHS (same as bot.py) ---
