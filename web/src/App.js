@@ -7,9 +7,7 @@ import {
   Trash2, 
   Calendar,
   MessageSquare,
-  RefreshCw,
-  ChevronLeft,
-  ChevronRight
+  RefreshCw
 } from 'lucide-react';
 import { format } from 'date-fns';
 import './App.css';
@@ -23,14 +21,13 @@ function App() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('logs'); // 'logs', 'search', or 'live'
-  const [currentPage, setCurrentPage] = useState(0);
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('darkMode');
     return saved === 'true';
   });
   const [liveMessages, setLiveMessages] = useState([]);
   const [autoScroll, setAutoScroll] = useState(true);
-  const itemsPerPage = 20;
+  const [displayCount, setDisplayCount] = useState(50);
 
   useEffect(() => {
     fetchLogs();
@@ -292,8 +289,15 @@ function App() {
     return logContent;
   };
 
-  const totalPages = Math.ceil(getDataForTab().length / itemsPerPage);
-  const paginatedData = getDataForTab().slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage);
+  const displayedData = getDataForTab().slice(0, displayCount);
+  const hasMore = getDataForTab().length > displayCount;
+
+  const handleScroll = (e) => {
+    const bottom = e.target.scrollHeight - e.target.scrollTop <= e.target.clientHeight + 100;
+    if (bottom && hasMore) {
+      setDisplayCount(prev => prev + 50);
+    }
+  };
 
   return (
     <div className={`app ${darkMode ? 'dark-mode' : ''}`}>
@@ -421,8 +425,22 @@ function App() {
                 <h2>{selectedLog}</h2>
                 <span>{logContent.length} messages</span>
               </div>
-              <div className="log-entries">
-                {paginatedData.map((entry, index) => renderLogEntry(entry, index))}
+              <div className="log-entries" onScroll={handleScroll}>
+                {displayedData.map((entry, index) => renderLogEntry(entry, index))}
+                {hasMore && <div className="loading-more">Scroll for more...</div>}
+              </div>
+            </div>
+          )}
+
+          {!loading && activeTab === 'live' && (
+            <div className="content-area">
+              <div className="content-header">
+                <h2>Live Feed</h2>
+                <span>{liveMessages.length} messages</span>
+              </div>
+              <div className="log-entries" onScroll={handleScroll}>
+                {displayedData.map((entry, index) => renderLogEntry(entry, index))}
+                {hasMore && <div className="loading-more">Scroll for more...</div>}
               </div>
             </div>
           )}
@@ -433,8 +451,9 @@ function App() {
                 <h2>Search Results for "{searchTerm}"</h2>
                 <span>{searchResults.length} results</span>
               </div>
-              <div className="log-entries">
-                {paginatedData.map((entry, index) => renderLogEntry(entry, index))}
+              <div className="log-entries" onScroll={handleScroll}>
+                {displayedData.map((entry, index) => renderLogEntry(entry, index))}
+                {hasMore && <div className="loading-more">Scroll for more...</div>}
               </div>
             </div>
           )}
@@ -452,26 +471,6 @@ function App() {
               <Search size={64} />
               <h3>No results found</h3>
               <p>Try a different search term</p>
-            </div>
-          )}
-
-          {totalPages > 1 && (
-            <div className="pagination">
-              <button
-                onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
-                disabled={currentPage === 0}
-              >
-                <ChevronLeft size={20} />
-              </button>
-              <span>
-                Page {currentPage + 1} of {totalPages}
-              </span>
-              <button
-                onClick={() => setCurrentPage(Math.min(totalPages - 1, currentPage + 1))}
-                disabled={currentPage === totalPages - 1}
-              >
-                <ChevronRight size={20} />
-              </button>
             </div>
           )}
         </main>

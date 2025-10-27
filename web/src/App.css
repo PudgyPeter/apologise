@@ -524,41 +524,12 @@
   font-size: 14px;
 }
 
-.pagination {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
+.loading-more {
+  text-align: center;
   padding: 20px;
-  border-top: 2px solid #e0e0e0;
-}
-
-.pagination button {
-  padding: 8px 12px;
-  background: #667eea;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background 0.2s;
-  display: flex;
-  align-items: center;
-}
-
-.pagination button:hover:not(:disabled) {
-  background: #5568d3;
-}
-
-.pagination button:disabled {
-  background: #e0e0e0;
   color: #999;
-  cursor: not-allowed;
-}
-
-.pagination span {
-  color: #666;
   font-size: 14px;
-  font-weight: 500;
+  font-style: italic;
 }
 
 @media (max-width: 1024px) {
@@ -692,15 +663,6 @@
 
   .attachment-image img {
     max-width: 100%;
-  }
-
-  .pagination {
-    gap: 8px;
-  }
-
-  .pagination button {
-    padding: 6px 10px;
-    font-size: 12px;
   }
 }
 
