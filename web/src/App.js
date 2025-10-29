@@ -64,6 +64,17 @@ function App() {
       fetchHospitalityStats();
       fetchHospitalityAnalytics();
     }
+
+    // Listen for service worker cache updates
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data && event.data.type === 'CACHE_UPDATED') {
+          console.log('Cache updated to version:', event.data.version);
+          // Auto-reload to get fresh content
+          window.location.reload();
+        }
+      });
+    }
     
     // Auto-refresh live messages every 5 seconds
     const interval = setInterval(() => {
@@ -606,6 +617,7 @@ function App() {
             <Menu size={24} />
           </button>
           <h1>📊 Discord Log Dashboard</h1>
+          <span className="version-badge">v2.0.0</span>
         </div>
         {stats && (
           <div className="stats">

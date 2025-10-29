@@ -1,5 +1,6 @@
 // Service Worker for PWA functionality
-const CACHE_NAME = 'discord-logs-v1';
+const CACHE_VERSION = 'v2.0.0';
+const CACHE_NAME = `discord-logs-${CACHE_VERSION}`;
 const urlsToCache = [
   '/',
   '/static/css/main.css',
@@ -7,82 +8,62 @@ const urlsToCache = [
   '/manifest.json'
 ];
 
-// Install event - cache resources
+// Install event - cache resources and skip waiting
 self.addEventListener('install', (event) => {
+  console.log('[SW] Installing new version:', CACHE_VERSION);
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => {
-        console.log('Opened cache');
-        return cache.addAll(urlsToCache);
-      })
-      .catch((error) => {
-        console.log('Cache install failed:', error);
-      })
+      .then((cache) => cache.addAll(urlsToCache))
+      .then(() => self.skipWaiting())
   );
-  self.skipWaiting();
 });
 
-// Fetch event - serve from cache, fallback to network
+// Fetch event - network first, then cache
 self.addEventListener('fetch', (event) => {
-  // Skip non-GET requests
-  if (event.request.method !== 'GET') {
-    return;
-  }
-
-  // Skip chrome-extension and other non-http(s) requests
-  if (!event.request.url.startsWith('http')) {
-    return;
-  }
-
   event.respondWith(
-    caches.match(event.request)
+    fetch(event.request)
       .then((response) => {
-        // Cache hit - return response
-        if (response) {
-          return response;
-        }
-
-        return fetch(event.request).then((response) => {
-          // Check if valid response
-          if (!response || response.status !== 200 || response.type !== 'basic') {
-            return response;
-          }
-
-          // Clone the response
+        // Clone and cache the response
+        if (response && response.status === 200) {
           const responseToCache = response.clone();
-
-          // Cache API responses for offline access
-          if (event.request.url.includes('/api/')) {
-            caches.open(CACHE_NAME)
-              .then((cache) => {
-                cache.put(event.request, responseToCache);
-              });
-          }
-
-          return response;
-        }).catch(() => {
-          // Network failed, try to return cached version
-          return caches.match(event.request);
-        });
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
+        }
+        return response;
+      })
+      .catch(() => {
+        // Fallback to cache if network fails
+        return caches.match(event.request);
       })
   );
 });
 
-// Activate event - clean up old caches
+// Activate event - aggressively clean up ALL old caches
 self.addEventListener('activate', (event) => {
-  const cacheWhitelist = [CACHE_NAME];
+  console.log('[SW] Activating new version:', CACHE_VERSION);
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          if (cacheWhitelist.indexOf(cacheName) === -1) {
+          if (cacheName !== CACHE_NAME) {
+            console.log('[SW] Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
+    }).then(() => {
+      // Take control of all pages immediately
+      return self.clients.claim();
+    }).then(() => {
+      // Reload all clients to get fresh content
+      return self.clients.matchAll().then((clients) => {
+        clients.forEach((client) => {
+          client.postMessage({ type: 'CACHE_UPDATED', version: CACHE_VERSION });
+        });
+      });
     })
   );
-  self.clients.claim();
 });
 
 // Background sync for offline data submission (if supported)

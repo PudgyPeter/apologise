@@ -1586,6 +1586,23 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  flex: 1;
+}
+
+.version-badge {
+  margin-left: auto;
+  padding: 4px 12px;
+  background: rgba(88, 101, 242, 0.1);
+  color: #5865f2;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'Courier New', monospace;
+}
+
+.dark-mode .version-badge {
+  background: rgba(88, 101, 242, 0.2);
+  color: #7289da;
 }
 
 /* Mobile Log Selector */
