@@ -261,8 +261,11 @@ def load_hospitality_stats():
 
 def save_hospitality_stats(stats):
     """Save hospitality statistics to file"""
+    # Ensure the directory exists
+    HOSPITALITY_STATS_FILE.parent.mkdir(parents=True, exist_ok=True)
     with open(HOSPITALITY_STATS_FILE, "w", encoding="utf-8") as f:
         json.dump(stats, f, indent=2, ensure_ascii=False)
+    print(f"[📊 HOSPITALITY] Saved {len(stats)} entries to {HOSPITALITY_STATS_FILE}")
 
 @app.route('/api/hospitality/stats', methods=['GET'])
 def get_hospitality_stats():
