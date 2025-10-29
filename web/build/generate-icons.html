@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Generate App Icons</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    canvas {
+      border: 1px solid #ccc;
+      margin: 10px;
+    }
+    button {
+      background: #5865f2;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 5px;
+    }
+    button:hover {
+      background: #4752c4;
+    }
+    .icon-preview {
+      display: flex;
+      gap: 20px;
+      margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>Generate App Icons</h1>
+  <p>Click the buttons below to download the app icons:</p>
+  
+  <div class="icon-preview">
+    <div>
+      <h3>192x192</h3>
+      <canvas id="canvas192" width="192" height="192"></canvas>
+      <br>
+      <button onclick="downloadIcon(192)">Download 192x192</button>
+    </div>
+    <div>
+      <h3>512x512</h3>
+      <canvas id="canvas512" width="512" height="512"></canvas>
+      <br>
+      <button onclick="downloadIcon(512)">Download 512x512</button>
+    </div>
+  </div>
+
+  <script>
+    function drawIcon(canvas) {
+      const ctx = canvas.getContext('2d');
+      const size = canvas.width;
+      
+      // Background with rounded corners
+      ctx.fillStyle = '#5865f2';
+      roundRect(ctx, 0, 0, size, size, size * 0.225);
+      ctx.fill();
+      
+      // Message bubble
+      ctx.fillStyle = 'white';
+      const bubbleSize = size * 0.6;
+      const bubbleX = size * 0.2;
+      const bubbleY = size * 0.25;
+      roundRect(ctx, bubbleX, bubbleY, bubbleSize, bubbleSize * 0.6, size * 0.05);
+      ctx.fill();
+      
+      // Chart bars inside bubble
+      ctx.fillStyle = '#5865f2';
+      const barWidth = size * 0.08;
+      const barSpacing = size * 0.12;
+      const barBaseY = bubbleY + bubbleSize * 0.5;
+      
+      // Bar 1
+      ctx.fillRect(bubbleX + size * 0.08, barBaseY - size * 0.12, barWidth, size * 0.12);
+      // Bar 2
+      ctx.fillRect(bubbleX + size * 0.08 + barSpacing, barBaseY - size * 0.22, barWidth, size * 0.22);
+      // Bar 3
+      ctx.fillRect(bubbleX + size * 0.08 + barSpacing * 2, barBaseY - size * 0.17, barWidth, size * 0.17);
+      // Bar 4
+      ctx.fillRect(bubbleX + size * 0.08 + barSpacing * 3, barBaseY - size * 0.27, barWidth, size * 0.27);
+    }
+    
+    function roundRect(ctx, x, y, width, height, radius) {
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.lineTo(x + width - radius, y);
+      ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+      ctx.lineTo(x + width, y + height - radius);
+      ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+      ctx.lineTo(x + radius, y + height);
+      ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+      ctx.lineTo(x, y + radius);
+      ctx.quadraticCurveTo(x, y, x + radius, y);
+      ctx.closePath();
+    }
+    
+    function downloadIcon(size) {
+      const canvas = document.getElementById('canvas' + size);
+      const link = document.createElement('a');
+      link.download = 'icon-' + size + '.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }
+    
+    // Draw icons on page load
+    window.onload = function() {
+      drawIcon(document.getElementById('canvas192'));
+      drawIcon(document.getElementById('canvas512'));
+    };
+  </script>
+</body>
+</html>
