@@ -142,16 +142,25 @@ def levenshtein(a, b):
     return previous_row[-1]
 
 def fuzzy_contains(text, keyword, tolerance=FUZZY_TOLERANCE):
+    """Check if keyword appears in text with fuzzy matching, respecting word boundaries"""
     text = (text or "").lower()
     keyword = (keyword or "").lower()
-    if keyword in text:
-        return True
     if len(keyword) == 0 or len(text) < len(keyword):
         return False
-    for i in range(len(text) - len(keyword) + 1):
-        window = text[i:i + len(keyword)]
-        if levenshtein(window, keyword) <= tolerance:
+    
+    # Split text into words (alphanumeric sequences)
+    words = re.findall(r'\b\w+\b', text)
+    
+    # Check each word for exact or fuzzy match
+    for word in words:
+        # Exact match
+        if keyword == word:
             return True
+        # Fuzzy match only if word length is close to keyword length
+        if abs(len(word) - len(keyword)) <= tolerance:
+            if levenshtein(word, keyword) <= tolerance:
+                return True
+    
     return False
 
 def fuzzy_match(text: str, keywords: list[str]) -> bool:
@@ -415,7 +424,17 @@ async def on_message(message: discord.Message):
         alert.set_footer(text=f"Detected at {datetime.utcnow().strftime('%H:%M:%S UTC')}")
         alert_channel = bot.get_channel(ALERT_CHANNEL_ID)
         if alert_channel:
-            jump_button = Button(label="Jump to Message", style=discord.ButtonStyle.link, url=message.jump_url)
+            # Try to get the log message URL instead of original message
+            log_url = message.jump_url  # fallback to original
+            group_info = message_to_group.get(message.id)
+            if group_info:
+                group_key, _ = group_info
+                group_data = group_cache.get(group_key)
+                if group_data and group_data.get("log_message_id") and group_data.get("log_channel_id"):
+                    # Build jump URL to log channel message
+                    log_url = f"https://discord.com/channels/{message.guild.id}/{group_data['log_channel_id']}/{group_data['log_message_id']}"
+            
+            jump_button = Button(label="Jump to Log", style=discord.ButtonStyle.link, url=log_url)
             view = View(); view.add_item(jump_button)
             await alert_channel.send(embed=alert, view=view)
 
