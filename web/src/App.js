@@ -183,6 +183,8 @@ function App() {
     try {
       const response = await axios.get('/api/hospitality/stats');
       setHospitalityStats(response.data);
+      console.log('Hospitality stats loaded:', response.data.length, 'entries');
+      console.log('Valid indices: 0 to', response.data.length - 1);
     } catch (error) {
       console.error('Error fetching hospitality stats:', error);
     }
