@@ -916,3 +916,323 @@
 .dark-mode .log-entries::-webkit-scrollbar-thumb:hover {
   background: #1e1f22;
 }
+
+/* Hospitality Stats Styles */
+.hospitality-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.hospitality-form-section {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.hospitality-form-section h2 {
+  margin: 0 0 20px 0;
+  color: #333;
+  font-size: 20px;
+}
+
+.hospitality-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  align-items: end;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #555;
+}
+
+.form-group input {
+  padding: 10px 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #5865f2;
+  box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.1);
+}
+
+.submit-btn {
+  padding: 10px 20px;
+  background: #5865f2;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.submit-btn:hover {
+  background: #4752c4;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(88, 101, 242, 0.3);
+}
+
+.analytics-section {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.analytics-section h2 {
+  margin: 0 0 20px 0;
+  color: #333;
+  font-size: 20px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.stat-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  color: white;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.stat-icon {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stat-info {
+  flex: 1;
+}
+
+.stat-label {
+  font-size: 12px;
+  opacity: 0.9;
+  margin-bottom: 4px;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.analytics-tables {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.analytics-table h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px 0;
+  color: #333;
+  font-size: 16px;
+}
+
+.analytics-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.analytics-table th {
+  text-align: left;
+  padding: 12px;
+  background: #f5f5f5;
+  font-size: 13px;
+  font-weight: 600;
+  color: #555;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.analytics-table td {
+  padding: 12px;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 14px;
+  color: #333;
+}
+
+.analytics-table td.highlight {
+  font-weight: 600;
+  color: #5865f2;
+}
+
+.analytics-table tr:hover {
+  background: #f9f9f9;
+}
+
+.recent-entries h3 {
+  margin: 0 0 16px 0;
+  color: #333;
+  font-size: 16px;
+}
+
+.entries-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.entry-card {
+  background: #f9f9f9;
+  border-radius: 10px;
+  padding: 16px;
+  border: 2px solid #e0e0e0;
+  transition: all 0.2s;
+}
+
+.entry-card:hover {
+  border-color: #5865f2;
+  box-shadow: 0 4px 12px rgba(88, 101, 242, 0.15);
+}
+
+.entry-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.entry-date {
+  font-weight: 600;
+  color: #5865f2;
+  font-size: 14px;
+}
+
+.delete-entry-btn {
+  background: none;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.delete-entry-btn:hover {
+  background: #fee;
+  color: #e74c3c;
+}
+
+.entry-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.entry-detail {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+}
+
+.entry-detail .label {
+  color: #666;
+  font-weight: 500;
+}
+
+.entry-detail .value {
+  color: #333;
+  font-weight: 600;
+}
+
+/* Dark mode for hospitality */
+.dark-mode .hospitality-form-section,
+.dark-mode .analytics-section {
+  background: #2b2d31;
+}
+
+.dark-mode .hospitality-form-section h2,
+.dark-mode .analytics-section h2,
+.dark-mode .analytics-table h3,
+.dark-mode .recent-entries h3 {
+  color: #dbdee1;
+}
+
+.dark-mode .form-group label {
+  color: #b5bac1;
+}
+
+.dark-mode .form-group input {
+  background: #1e1f22;
+  border-color: #1e1f22;
+  color: #dbdee1;
+}
+
+.dark-mode .form-group input:focus {
+  border-color: #5865f2;
+  background: #2b2d31;
+}
+
+.dark-mode .analytics-table th {
+  background: #1e1f22;
+  color: #b5bac1;
+  border-bottom-color: #1e1f22;
+}
+
+.dark-mode .analytics-table td {
+  color: #dbdee1;
+  border-bottom-color: #1e1f22;
+}
+
+.dark-mode .analytics-table tr:hover {
+  background: #1e1f22;
+}
+
+.dark-mode .entry-card {
+  background: #1e1f22;
+  border-color: #1e1f22;
+}
+
+.dark-mode .entry-card:hover {
+  border-color: #5865f2;
+}
+
+.dark-mode .entry-header {
+  border-bottom-color: #2b2d31;
+}
+
+.dark-mode .entry-detail .label {
+  color: #b5bac1;
+}
+
+.dark-mode .entry-detail .value {
+  color: #dbdee1;
+}

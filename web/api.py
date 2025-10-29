@@ -247,6 +247,178 @@ def health():
     """Health check endpoint"""
     return jsonify({"status": "ok", "timestamp": datetime.utcnow().isoformat()})
 
+# --- HOSPITALITY STATS ENDPOINTS ---
+HOSPITALITY_STATS_FILE = BASE_LOG_DIR / "hospitality_stats.json"
+
+def load_hospitality_stats():
+    """Load hospitality statistics from file"""
+    if not HOSPITALITY_STATS_FILE.exists():
+        return []
+    try:
+        return json.loads(HOSPITALITY_STATS_FILE.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return []
+
+def save_hospitality_stats(stats):
+    """Save hospitality statistics to file"""
+    with open(HOSPITALITY_STATS_FILE, "w", encoding="utf-8") as f:
+        json.dump(stats, f, indent=2, ensure_ascii=False)
+
+@app.route('/api/hospitality/stats', methods=['GET'])
+def get_hospitality_stats():
+    """Get all hospitality statistics"""
+    try:
+        stats = load_hospitality_stats()
+        return jsonify(stats)
+    except Exception as e:
+        print(f"[💥 API] Error loading hospitality stats: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/hospitality/stats', methods=['POST'])
+def add_hospitality_stat():
+    """Add a new hospitality statistic entry"""
+    try:
+        data = request.get_json()
+        
+        # Validate required fields
+        required = ['miv', 'average_spend', 'staff_member']
+        for field in required:
+            if field not in data:
+                return jsonify({"error": f"Missing required field: {field}"}), 400
+        
+        # Auto-generate date in local timezone if not provided
+        from datetime import datetime, timedelta
+        if 'date' not in data or not data['date']:
+            local_time = datetime.utcnow() + timedelta(hours=LOCAL_TIMEZONE_OFFSET)
+            data['date'] = local_time.strftime("%Y-%m-%d")
+        
+        # Add timestamp
+        data['created_at'] = datetime.utcnow().isoformat()
+        
+        # Load existing stats
+        stats = load_hospitality_stats()
+        
+        # Add new entry
+        stats.append(data)
+        
+        # Save back to file
+        save_hospitality_stats(stats)
+        
+        print(f"[📊 HOSPITALITY] Added stat: {data['date']} - MIV: {data['miv']}, A$: {data['average_spend']}, Staff: {data['staff_member']}")
+        
+        return jsonify({"status": "ok", "entry": data}), 201
+    except Exception as e:
+        print(f"[💥 API] Error adding hospitality stat: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/hospitality/stats/<entry_id>', methods=['DELETE'])
+def delete_hospitality_stat(entry_id):
+    """Delete a hospitality statistic entry"""
+    try:
+        stats = load_hospitality_stats()
+        
+        # Find and remove entry by index
+        try:
+            index = int(entry_id)
+            if 0 <= index < len(stats):
+                removed = stats.pop(index)
+                save_hospitality_stats(stats)
+                return jsonify({"status": "ok", "removed": removed})
+            else:
+                return jsonify({"error": "Entry not found"}), 404
+        except ValueError:
+            return jsonify({"error": "Invalid entry ID"}), 400
+    except Exception as e:
+        print(f"[💥 API] Error deleting hospitality stat: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/hospitality/analytics', methods=['GET'])
+def get_hospitality_analytics():
+    """Calculate analytics from hospitality statistics"""
+    try:
+        stats = load_hospitality_stats()
+        
+        if not stats:
+            return jsonify({
+                "total_entries": 0,
+                "staff_performance": [],
+                "day_of_week_avg": {},
+                "overall_avg_miv": 0,
+                "overall_avg_spend": 0
+            })
+        
+        from collections import defaultdict
+        from datetime import datetime
+        
+        # Staff performance tracking
+        staff_data = defaultdict(lambda: {"total_spend": 0, "total_miv": 0, "count": 0, "entries": []})
+        
+        # Day of week tracking
+        day_data = defaultdict(lambda: {"total_miv": 0, "total_spend": 0, "count": 0})
+        
+        total_miv = 0
+        total_spend = 0
+        
+        for entry in stats:
+            staff = entry.get('staff_member', 'Unknown')
+            miv = float(entry.get('miv', 0))
+            avg_spend = float(entry.get('average_spend', 0))
+            
+            # Staff stats
+            staff_data[staff]["total_spend"] += avg_spend
+            staff_data[staff]["total_miv"] += miv
+            staff_data[staff]["count"] += 1
+            staff_data[staff]["entries"].append(entry)
+            
+            # Day of week stats
+            if 'date' in entry:
+                try:
+                    date_obj = datetime.strptime(entry['date'], "%Y-%m-%d")
+                    day_name = date_obj.strftime("%A")
+                    day_data[day_name]["total_miv"] += miv
+                    day_data[day_name]["total_spend"] += avg_spend
+                    day_data[day_name]["count"] += 1
+                except:
+                    pass
+            
+            total_miv += miv
+            total_spend += avg_spend
+        
+        # Calculate staff performance
+        staff_performance = []
+        for staff, data in staff_data.items():
+            staff_performance.append({
+                "staff_member": staff,
+                "avg_spend": round(data["total_spend"] / data["count"], 2),
+                "avg_miv": round(data["total_miv"] / data["count"], 2),
+                "total_entries": data["count"]
+            })
+        
+        # Sort by average spend (highest first)
+        staff_performance.sort(key=lambda x: x["avg_spend"], reverse=True)
+        
+        # Calculate day of week averages
+        day_of_week_avg = {}
+        for day, data in day_data.items():
+            day_of_week_avg[day] = {
+                "avg_miv": round(data["total_miv"] / data["count"], 2),
+                "avg_spend": round(data["total_spend"] / data["count"], 2),
+                "count": data["count"]
+            }
+        
+        return jsonify({
+            "total_entries": len(stats),
+            "staff_performance": staff_performance,
+            "day_of_week_avg": day_of_week_avg,
+            "overall_avg_miv": round(total_miv / len(stats), 2),
+            "overall_avg_spend": round(total_spend / len(stats), 2)
+        })
+    except Exception as e:
+        print(f"[💥 API] Error calculating analytics: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
 # Catch-all route for React app (must be last!)
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')

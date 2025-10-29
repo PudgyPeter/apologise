@@ -7,7 +7,11 @@ import {
   Trash2, 
   Calendar,
   MessageSquare,
-  RefreshCw
+  RefreshCw,
+  TrendingUp,
+  Users,
+  DollarSign,
+  BarChart3
 } from 'lucide-react';
 import { format } from 'date-fns';
 import './App.css';
@@ -28,11 +32,26 @@ function App() {
   const [liveMessages, setLiveMessages] = useState([]);
   const [autoScroll, setAutoScroll] = useState(true);
   const [displayCount, setDisplayCount] = useState(50);
+  
+  // Hospitality stats state
+  const [hospitalityStats, setHospitalityStats] = useState([]);
+  const [hospitalityAnalytics, setHospitalityAnalytics] = useState(null);
+  const [newStat, setNewStat] = useState({
+    miv: '',
+    average_spend: '',
+    staff_member: ''
+  });
 
   useEffect(() => {
     fetchLogs();
     fetchStats();
     fetchLiveMessages();
+    
+    // Fetch hospitality stats if on that tab
+    if (activeTab === 'hospitality') {
+      fetchHospitalityStats();
+      fetchHospitalityAnalytics();
+    }
     
     // Auto-refresh live messages every 5 seconds
     const interval = setInterval(() => {
@@ -149,6 +168,56 @@ function App() {
       }
     } catch (error) {
       console.error('Error deleting log:', error);
+    }
+  };
+
+  // Hospitality stats functions
+  const fetchHospitalityStats = async () => {
+    try {
+      const response = await axios.get('/api/hospitality/stats');
+      setHospitalityStats(response.data);
+    } catch (error) {
+      console.error('Error fetching hospitality stats:', error);
+    }
+  };
+
+  const fetchHospitalityAnalytics = async () => {
+    try {
+      const response = await axios.get('/api/hospitality/analytics');
+      setHospitalityAnalytics(response.data);
+    } catch (error) {
+      console.error('Error fetching hospitality analytics:', error);
+    }
+  };
+
+  const handleSubmitStat = async (e) => {
+    e.preventDefault();
+    
+    if (!newStat.miv || !newStat.average_spend || !newStat.staff_member) {
+      alert('Please fill in all fields');
+      return;
+    }
+    
+    try {
+      await axios.post('/api/hospitality/stats', newStat);
+      setNewStat({ miv: '', average_spend: '', staff_member: '' });
+      fetchHospitalityStats();
+      fetchHospitalityAnalytics();
+    } catch (error) {
+      console.error('Error submitting stat:', error);
+      alert('Error submitting stat');
+    }
+  };
+
+  const handleDeleteStat = async (index) => {
+    if (!window.confirm('Delete this entry?')) return;
+    
+    try {
+      await axios.delete(`/api/hospitality/stats/${index}`);
+      fetchHospitalityStats();
+      fetchHospitalityAnalytics();
+    } catch (error) {
+      console.error('Error deleting stat:', error);
     }
   };
 
@@ -423,6 +492,13 @@ function App() {
               <Search size={18} />
               Search Results
             </button>
+            <button
+              className={activeTab === 'hospitality' ? 'active' : ''}
+              onClick={() => setActiveTab('hospitality')}
+            >
+              <TrendingUp size={18} />
+              Hospitality Stats
+            </button>
           </div>
 
           {loading && (
@@ -492,6 +568,172 @@ function App() {
               <Search size={64} />
               <h3>No results found</h3>
               <p>Try a different search term</p>
+            </div>
+          )}
+
+          {activeTab === 'hospitality' && (
+            <div className="content-area hospitality-content">
+              <div className="hospitality-form-section">
+                <h2>Add Daily Stats</h2>
+                <form onSubmit={handleSubmitStat} className="hospitality-form">
+                  <div className="form-group">
+                    <label>MIV (Main Item Value)</label>
+                    <input
+                      type="number"
+                      value={newStat.miv}
+                      onChange={(e) => setNewStat({...newStat, miv: e.target.value})}
+                      placeholder="Number of burgers/salads sold"
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Average Spend ($)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={newStat.average_spend}
+                      onChange={(e) => setNewStat({...newStat, average_spend: e.target.value})}
+                      placeholder="Net sales ÷ MIV"
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Staff Member</label>
+                    <input
+                      type="text"
+                      value={newStat.staff_member}
+                      onChange={(e) => setNewStat({...newStat, staff_member: e.target.value})}
+                      placeholder="Who was tilling orders?"
+                      required
+                    />
+                  </div>
+                  <button type="submit" className="submit-btn">
+                    <TrendingUp size={18} />
+                    Add Entry (Auto-dated to today)
+                  </button>
+                </form>
+              </div>
+
+              {hospitalityAnalytics && (
+                <div className="analytics-section">
+                  <h2>Analytics</h2>
+                  
+                  <div className="stats-grid">
+                    <div className="stat-card">
+                      <div className="stat-icon">
+                        <BarChart3 size={24} />
+                      </div>
+                      <div className="stat-info">
+                        <div className="stat-label">Total Entries</div>
+                        <div className="stat-value">{hospitalityAnalytics.total_entries}</div>
+                      </div>
+                    </div>
+                    
+                    <div className="stat-card">
+                      <div className="stat-icon">
+                        <TrendingUp size={24} />
+                      </div>
+                      <div className="stat-info">
+                        <div className="stat-label">Overall Avg MIV</div>
+                        <div className="stat-value">{hospitalityAnalytics.overall_avg_miv}</div>
+                      </div>
+                    </div>
+                    
+                    <div className="stat-card">
+                      <div className="stat-icon">
+                        <DollarSign size={24} />
+                      </div>
+                      <div className="stat-info">
+                        <div className="stat-label">Overall Avg Spend</div>
+                        <div className="stat-value">${hospitalityAnalytics.overall_avg_spend}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="analytics-tables">
+                    <div className="analytics-table">
+                      <h3><Users size={20} /> Staff Performance</h3>
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Staff Member</th>
+                            <th>Avg Spend</th>
+                            <th>Avg MIV</th>
+                            <th>Entries</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {hospitalityAnalytics.staff_performance.map((staff, idx) => (
+                            <tr key={idx}>
+                              <td>{staff.staff_member}</td>
+                              <td className="highlight">${staff.avg_spend}</td>
+                              <td>{staff.avg_miv}</td>
+                              <td>{staff.total_entries}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="analytics-table">
+                      <h3><Calendar size={20} /> Day of Week Averages</h3>
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Day</th>
+                            <th>Avg MIV</th>
+                            <th>Avg Spend</th>
+                            <th>Entries</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Object.entries(hospitalityAnalytics.day_of_week_avg).map(([day, data]) => (
+                            <tr key={day}>
+                              <td>{day}</td>
+                              <td>{data.avg_miv}</td>
+                              <td className="highlight">${data.avg_spend}</td>
+                              <td>{data.count}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div className="recent-entries">
+                    <h3>Recent Entries</h3>
+                    <div className="entries-list">
+                      {hospitalityStats.slice().reverse().map((stat, idx) => (
+                        <div key={idx} className="entry-card">
+                          <div className="entry-header">
+                            <span className="entry-date">{stat.date}</span>
+                            <button 
+                              onClick={() => handleDeleteStat(hospitalityStats.length - 1 - idx)}
+                              className="delete-entry-btn"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                          <div className="entry-details">
+                            <div className="entry-detail">
+                              <span className="label">MIV:</span>
+                              <span className="value">{stat.miv}</span>
+                            </div>
+                            <div className="entry-detail">
+                              <span className="label">Avg Spend:</span>
+                              <span className="value">${stat.average_spend}</span>
+                            </div>
+                            <div className="entry-detail">
+                              <span className="label">Staff:</span>
+                              <span className="value">{stat.staff_member}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </main>
