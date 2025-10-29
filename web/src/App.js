@@ -11,7 +11,10 @@ import {
   TrendingUp,
   Users,
   DollarSign,
-  BarChart3
+  BarChart3,
+  Edit2,
+  X,
+  Check
 } from 'lucide-react';
 import { format } from 'date-fns';
 import './App.css';
@@ -37,10 +40,14 @@ function App() {
   const [hospitalityStats, setHospitalityStats] = useState([]);
   const [hospitalityAnalytics, setHospitalityAnalytics] = useState(null);
   const [newStat, setNewStat] = useState({
+    date: '',
     miv: '',
     average_spend: '',
-    staff_member: ''
+    staff_member: '',
+    meal_period: 'lunch'
   });
+  const [editingIndex, setEditingIndex] = useState(null);
+  const [editingStat, setEditingStat] = useState(null);
 
   useEffect(() => {
     fetchLogs();
@@ -193,20 +200,51 @@ function App() {
   const handleSubmitStat = async (e) => {
     e.preventDefault();
     
-    if (!newStat.miv || !newStat.average_spend || !newStat.staff_member) {
+    if (!newStat.miv || !newStat.average_spend || !newStat.staff_member || !newStat.meal_period) {
       alert('Please fill in all fields');
       return;
     }
     
     try {
       await axios.post('/api/hospitality/stats', newStat);
-      setNewStat({ miv: '', average_spend: '', staff_member: '' });
+      setNewStat({ date: '', miv: '', average_spend: '', staff_member: '', meal_period: 'lunch' });
       fetchHospitalityStats();
       fetchHospitalityAnalytics();
     } catch (error) {
       console.error('Error submitting stat:', error);
-      alert('Error submitting stat');
+      alert('Error submitting stat: ' + (error.response?.data?.error || error.message));
     }
+  };
+
+  const handleEditStat = (index) => {
+    const stat = hospitalityStats[index];
+    setEditingIndex(index);
+    setEditingStat({...stat});
+  };
+
+  const handleUpdateStat = async (e) => {
+    e.preventDefault();
+    
+    if (!editingStat.miv || !editingStat.average_spend || !editingStat.staff_member || !editingStat.meal_period || !editingStat.date) {
+      alert('Please fill in all fields');
+      return;
+    }
+    
+    try {
+      await axios.put(`/api/hospitality/stats/${editingIndex}`, editingStat);
+      setEditingIndex(null);
+      setEditingStat(null);
+      fetchHospitalityStats();
+      fetchHospitalityAnalytics();
+    } catch (error) {
+      console.error('Error updating stat:', error);
+      alert('Error updating stat: ' + (error.response?.data?.error || error.message));
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingIndex(null);
+    setEditingStat(null);
   };
 
   const handleDeleteStat = async (index) => {
@@ -577,6 +615,26 @@ function App() {
                 <h2>Add Daily Stats</h2>
                 <form onSubmit={handleSubmitStat} className="hospitality-form">
                   <div className="form-group">
+                    <label>Date (leave blank for today)</label>
+                    <input
+                      type="date"
+                      value={newStat.date}
+                      onChange={(e) => setNewStat({...newStat, date: e.target.value})}
+                      placeholder="YYYY-MM-DD"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Meal Period</label>
+                    <select
+                      value={newStat.meal_period}
+                      onChange={(e) => setNewStat({...newStat, meal_period: e.target.value})}
+                      required
+                    >
+                      <option value="lunch">Lunch</option>
+                      <option value="dinner">Dinner</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
                     <label>MIV (Main Item Value)</label>
                     <input
                       type="number"
@@ -609,7 +667,7 @@ function App() {
                   </div>
                   <button type="submit" className="submit-btn">
                     <TrendingUp size={18} />
-                    Add Entry (Auto-dated to today)
+                    Add Entry
                   </button>
                 </form>
               </div>
@@ -698,39 +756,154 @@ function App() {
                         </tbody>
                       </table>
                     </div>
+
+                    <div className="analytics-table">
+                      <h3><TrendingUp size={20} /> Meal Period Comparison</h3>
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Period</th>
+                            <th>Avg MIV</th>
+                            <th>Avg Spend</th>
+                            <th>Entries</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Object.entries(hospitalityAnalytics.meal_period_avg || {}).map(([period, data]) => (
+                            <tr key={period}>
+                              <td style={{textTransform: 'capitalize'}}>{period}</td>
+                              <td>{data.avg_miv}</td>
+                              <td className="highlight">${data.avg_spend}</td>
+                              <td>{data.count}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
 
                   <div className="recent-entries">
                     <h3>Recent Entries</h3>
                     <div className="entries-list">
-                      {hospitalityStats.slice().reverse().map((stat, idx) => (
-                        <div key={idx} className="entry-card">
-                          <div className="entry-header">
-                            <span className="entry-date">{stat.date}</span>
-                            <button 
-                              onClick={() => handleDeleteStat(hospitalityStats.length - 1 - idx)}
-                              className="delete-entry-btn"
-                            >
-                              <Trash2 size={16} />
-                            </button>
+                      {hospitalityStats.slice().reverse().map((stat, idx) => {
+                        const actualIndex = hospitalityStats.length - 1 - idx;
+                        const isEditing = editingIndex === actualIndex;
+                        
+                        return (
+                          <div key={idx} className="entry-card">
+                            <div className="entry-header">
+                              <span className="entry-date">
+                                {stat.date} - <span style={{textTransform: 'capitalize'}}>{stat.meal_period}</span>
+                              </span>
+                              <div className="entry-actions">
+                                <button 
+                                  onClick={() => handleEditStat(actualIndex)}
+                                  className="edit-entry-btn"
+                                  title="Edit"
+                                >
+                                  <Edit2 size={16} />
+                                </button>
+                                <button 
+                                  onClick={() => handleDeleteStat(actualIndex)}
+                                  className="delete-entry-btn"
+                                  title="Delete"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                            </div>
+                            <div className="entry-details">
+                              <div className="entry-detail">
+                                <span className="label">MIV:</span>
+                                <span className="value">{stat.miv}</span>
+                              </div>
+                              <div className="entry-detail">
+                                <span className="label">Avg Spend:</span>
+                                <span className="value">${stat.average_spend}</span>
+                              </div>
+                              <div className="entry-detail">
+                                <span className="label">Staff:</span>
+                                <span className="value">{stat.staff_member}</span>
+                              </div>
+                            </div>
                           </div>
-                          <div className="entry-details">
-                            <div className="entry-detail">
-                              <span className="label">MIV:</span>
-                              <span className="value">{stat.miv}</span>
-                            </div>
-                            <div className="entry-detail">
-                              <span className="label">Avg Spend:</span>
-                              <span className="value">${stat.average_spend}</span>
-                            </div>
-                            <div className="entry-detail">
-                              <span className="label">Staff:</span>
-                              <span className="value">{stat.staff_member}</span>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Edit Modal */}
+              {editingIndex !== null && editingStat && (
+                <div className="modal-overlay" onClick={handleCancelEdit}>
+                  <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                    <div className="modal-header">
+                      <h2>Edit Entry</h2>
+                      <button onClick={handleCancelEdit} className="modal-close">
+                        <X size={24} />
+                      </button>
+                    </div>
+                    <form onSubmit={handleUpdateStat} className="hospitality-form">
+                      <div className="form-group">
+                        <label>Date</label>
+                        <input
+                          type="date"
+                          value={editingStat.date}
+                          onChange={(e) => setEditingStat({...editingStat, date: e.target.value})}
+                          required
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Meal Period</label>
+                        <select
+                          value={editingStat.meal_period}
+                          onChange={(e) => setEditingStat({...editingStat, meal_period: e.target.value})}
+                          required
+                        >
+                          <option value="lunch">Lunch</option>
+                          <option value="dinner">Dinner</option>
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label>MIV</label>
+                        <input
+                          type="number"
+                          value={editingStat.miv}
+                          onChange={(e) => setEditingStat({...editingStat, miv: e.target.value})}
+                          required
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Average Spend ($)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={editingStat.average_spend}
+                          onChange={(e) => setEditingStat({...editingStat, average_spend: e.target.value})}
+                          required
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Staff Member</label>
+                        <input
+                          type="text"
+                          value={editingStat.staff_member}
+                          onChange={(e) => setEditingStat({...editingStat, staff_member: e.target.value})}
+                          required
+                        />
+                      </div>
+                      <div className="modal-actions">
+                        <button type="button" onClick={handleCancelEdit} className="cancel-btn">
+                          <X size={18} />
+                          Cancel
+                        </button>
+                        <button type="submit" className="submit-btn">
+                          <Check size={18} />
+                          Update
+                        </button>
+                      </div>
+                    </form>
                   </div>
                 </div>
               )}

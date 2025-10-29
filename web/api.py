@@ -281,10 +281,14 @@ def add_hospitality_stat():
         data = request.get_json()
         
         # Validate required fields
-        required = ['miv', 'average_spend', 'staff_member']
+        required = ['miv', 'average_spend', 'staff_member', 'meal_period']
         for field in required:
             if field not in data:
                 return jsonify({"error": f"Missing required field: {field}"}), 400
+        
+        # Validate meal_period
+        if data['meal_period'] not in ['lunch', 'dinner']:
+            return jsonify({"error": "meal_period must be 'lunch' or 'dinner'"}), 400
         
         # Auto-generate date in local timezone if not provided
         from datetime import datetime, timedelta
@@ -304,11 +308,40 @@ def add_hospitality_stat():
         # Save back to file
         save_hospitality_stats(stats)
         
-        print(f"[📊 HOSPITALITY] Added stat: {data['date']} - MIV: {data['miv']}, A$: {data['average_spend']}, Staff: {data['staff_member']}")
+        print(f"[📊 HOSPITALITY] Added stat: {data['date']} {data['meal_period']} - MIV: {data['miv']}, A$: {data['average_spend']}, Staff: {data['staff_member']}")
         
         return jsonify({"status": "ok", "entry": data}), 201
     except Exception as e:
         print(f"[💥 API] Error adding hospitality stat: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/hospitality/stats/<entry_id>', methods=['PUT'])
+def update_hospitality_stat(entry_id):
+    """Update a hospitality statistic entry"""
+    try:
+        data = request.get_json()
+        stats = load_hospitality_stats()
+        
+        # Find and update entry by index
+        try:
+            index = int(entry_id)
+            if 0 <= index < len(stats):
+                # Validate meal_period if provided
+                if 'meal_period' in data and data['meal_period'] not in ['lunch', 'dinner']:
+                    return jsonify({"error": "meal_period must be 'lunch' or 'dinner'"}), 400
+                
+                # Update fields
+                stats[index].update(data)
+                stats[index]['updated_at'] = datetime.utcnow().isoformat()
+                
+                save_hospitality_stats(stats)
+                return jsonify({"status": "ok", "entry": stats[index]})
+            else:
+                return jsonify({"error": "Entry not found"}), 404
+        except ValueError:
+            return jsonify({"error": "Invalid entry ID"}), 400
+    except Exception as e:
+        print(f"[💥 API] Error updating hospitality stat: {e}")
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/hospitality/stats/<entry_id>', methods=['DELETE'])
@@ -356,6 +389,9 @@ def get_hospitality_analytics():
         # Day of week tracking
         day_data = defaultdict(lambda: {"total_miv": 0, "total_spend": 0, "count": 0})
         
+        # Meal period tracking
+        meal_data = defaultdict(lambda: {"total_miv": 0, "total_spend": 0, "count": 0})
+        
         total_miv = 0
         total_spend = 0
         
@@ -363,6 +399,7 @@ def get_hospitality_analytics():
             staff = entry.get('staff_member', 'Unknown')
             miv = float(entry.get('miv', 0))
             avg_spend = float(entry.get('average_spend', 0))
+            meal_period = entry.get('meal_period', 'unknown')
             
             # Staff stats
             staff_data[staff]["total_spend"] += avg_spend
@@ -380,6 +417,11 @@ def get_hospitality_analytics():
                     day_data[day_name]["count"] += 1
                 except:
                     pass
+            
+            # Meal period stats
+            meal_data[meal_period]["total_miv"] += miv
+            meal_data[meal_period]["total_spend"] += avg_spend
+            meal_data[meal_period]["count"] += 1
             
             total_miv += miv
             total_spend += avg_spend
@@ -406,10 +448,20 @@ def get_hospitality_analytics():
                 "count": data["count"]
             }
         
+        # Calculate meal period averages
+        meal_period_avg = {}
+        for meal, data in meal_data.items():
+            meal_period_avg[meal] = {
+                "avg_miv": round(data["total_miv"] / data["count"], 2),
+                "avg_spend": round(data["total_spend"] / data["count"], 2),
+                "count": data["count"]
+            }
+        
         return jsonify({
             "total_entries": len(stats),
             "staff_performance": staff_performance,
             "day_of_week_avg": day_of_week_avg,
+            "meal_period_avg": meal_period_avg,
             "overall_avg_miv": round(total_miv / len(stats), 2),
             "overall_avg_spend": round(total_spend / len(stats), 2)
         })
