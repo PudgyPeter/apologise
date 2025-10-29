@@ -1595,7 +1595,7 @@
   }
 
   .app {
-    padding: 10px;
+    padding: 0;
   }
 
   .header {
@@ -1603,41 +1603,42 @@
   }
 
   .header h1 {
-    font-size: 22px;
+    font-size: 18px;
   }
 
   .stats {
-    flex-wrap: wrap;
-    gap: 16px;
+    display: none; /* Hide stats on mobile */
   }
 
   .container {
     grid-template-columns: 1fr;
-    height: auto;
-    gap: 10px;
+    height: calc(100vh - 70px); /* Full height minus header */
+    gap: 0;
+    padding: 0;
   }
 
   .sidebar {
-    max-height: 300px;
+    display: none; /* Hide sidebar on mobile */
   }
 
   .main-content {
-    min-height: 60vh;
+    min-height: 100%;
+    height: 100%;
+    border-radius: 0;
+    box-shadow: none;
   }
 
   .tabs {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
+    display: none; /* Hide tabs on mobile */
   }
 
-  .tabs::-webkit-scrollbar {
-    display: none;
+  .content-area {
+    padding: 16px;
+    height: 100%;
   }
 
-  .tabs button {
-    white-space: nowrap;
-    min-width: 120px;
+  .hospitality-content {
+    padding: 16px;
   }
 
   /* Hospitality form mobile */
