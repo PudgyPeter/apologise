@@ -219,14 +219,18 @@ function App() {
   const handleEditStat = (index) => {
     const stat = hospitalityStats[index];
     setEditingIndex(index);
-    setEditingStat({...stat});
+    // Ensure meal_period has a default value if it doesn't exist
+    setEditingStat({
+      ...stat,
+      meal_period: stat.meal_period || 'lunch'
+    });
   };
 
   const handleUpdateStat = async (e) => {
     e.preventDefault();
     
-    if (!editingStat.miv || !editingStat.average_spend || !editingStat.staff_member || !editingStat.meal_period || !editingStat.date) {
-      alert('Please fill in all fields');
+    if (!editingStat.miv || !editingStat.average_spend || !editingStat.staff_member || !editingStat.meal_period) {
+      alert('Please fill in all required fields (MIV, Average Spend, Staff Member, Meal Period)');
       return;
     }
     
@@ -264,6 +268,17 @@ function App() {
       return format(new Date(timestamp), 'MMM dd, yyyy HH:mm:ss');
     } catch {
       return timestamp;
+    }
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    try {
+      // Parse YYYY-MM-DD format and convert to DD/MM/YYYY
+      const date = new Date(dateString + 'T00:00:00'); // Add time to avoid timezone issues
+      return format(date, 'dd/MM/yyyy');
+    } catch {
+      return dateString;
     }
   };
 
@@ -793,7 +808,7 @@ function App() {
                           <div key={idx} className="entry-card">
                             <div className="entry-header">
                               <span className="entry-date">
-                                {stat.date} - <span style={{textTransform: 'capitalize'}}>{stat.meal_period}</span>
+                                {formatDate(stat.date)} - <span style={{textTransform: 'capitalize'}}>{stat.meal_period}</span>
                               </span>
                               <div className="entry-actions">
                                 <button 
@@ -849,9 +864,8 @@ function App() {
                         <label>Date</label>
                         <input
                           type="date"
-                          value={editingStat.date}
+                          value={editingStat.date || ''}
                           onChange={(e) => setEditingStat({...editingStat, date: e.target.value})}
-                          required
                         />
                       </div>
                       <div className="form-group">
