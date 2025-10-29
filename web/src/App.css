@@ -1236,3 +1236,119 @@
 .dark-mode .entry-detail .value {
   color: #dbdee1;
 }
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  .app {
+    padding: 10px;
+  }
+
+  .header {
+    padding: 16px;
+  }
+
+  .header h1 {
+    font-size: 22px;
+  }
+
+  .stats {
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .container {
+    grid-template-columns: 1fr;
+    height: auto;
+    gap: 10px;
+  }
+
+  .sidebar {
+    max-height: 300px;
+  }
+
+  .main-content {
+    min-height: 60vh;
+  }
+
+  .tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tabs button {
+    white-space: nowrap;
+    min-width: 120px;
+  }
+
+  /* Hospitality form mobile */
+  .hospitality-form {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .analytics-tables {
+    grid-template-columns: 1fr;
+  }
+
+  .entries-list {
+    grid-template-columns: 1fr;
+  }
+
+  .analytics-table {
+    overflow-x: auto;
+  }
+
+  .analytics-table table {
+    min-width: 400px;
+  }
+
+  /* Make touch targets larger on mobile */
+  button {
+    min-height: 44px;
+  }
+
+  input {
+    min-height: 44px;
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+}
+
+/* PWA Standalone Mode */
+@media (display-mode: standalone) {
+  .app {
+    /* Add safe area insets for iPhone notch */
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  .header {
+    /* Account for status bar on iPhone */
+    padding-top: calc(16px + env(safe-area-inset-top));
+  }
+}
+
+/* iOS specific fixes */
+@supports (-webkit-touch-callout: none) {
+  /* Fix for iOS Safari */
+  input,
+  textarea,
+  select {
+    font-size: 16px; /* Prevents auto-zoom */
+  }
+
+  /* Smooth scrolling */
+  .log-entries,
+  .hospitality-content {
+    -webkit-overflow-scrolling: touch;
+  }
+}
