@@ -14,7 +14,9 @@ import {
   BarChart3,
   Edit2,
   X,
-  Check
+  Check,
+  Menu,
+  Activity
 } from 'lucide-react';
 import { format } from 'date-fns';
 import './App.css';
@@ -35,6 +37,7 @@ function App() {
   const [liveMessages, setLiveMessages] = useState([]);
   const [autoScroll, setAutoScroll] = useState(true);
   const [displayCount, setDisplayCount] = useState(50);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   // Hospitality stats state
   const [hospitalityStats, setHospitalityStats] = useState([]);
@@ -518,10 +521,57 @@ function App() {
     }
   };
 
+  const handleMobileNav = (tab) => {
+    setActiveTab(tab);
+    setMobileMenuOpen(false);
+  };
+
   return (
     <div className={`app ${darkMode ? 'dark-mode' : ''}`}>
+      {/* Mobile Navigation Menu */}
+      {mobileMenuOpen && (
+        <div className="mobile-menu-overlay" onClick={() => setMobileMenuOpen(false)}>
+          <div className="mobile-menu" onClick={(e) => e.stopPropagation()}>
+            <div className="mobile-menu-header">
+              <h2>Navigation</h2>
+              <button onClick={() => setMobileMenuOpen(false)} className="mobile-menu-close">
+                <X size={24} />
+              </button>
+            </div>
+            <div className="mobile-menu-buttons">
+              <button 
+                className={`mobile-nav-btn ${activeTab === 'logs' ? 'active' : ''}`}
+                onClick={() => handleMobileNav('logs')}
+              >
+                <FileText size={32} />
+                <span>Logs</span>
+              </button>
+              <button 
+                className={`mobile-nav-btn ${activeTab === 'live' ? 'active' : ''}`}
+                onClick={() => handleMobileNav('live')}
+              >
+                <Activity size={32} />
+                <span>Live Feed</span>
+              </button>
+              <button 
+                className={`mobile-nav-btn ${activeTab === 'hospitality' ? 'active' : ''}`}
+                onClick={() => handleMobileNav('hospitality')}
+              >
+                <TrendingUp size={32} />
+                <span>Stats</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <header className="header">
-        <h1>📊 Discord Log Dashboard</h1>
+        <div className="header-content">
+          <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(true)}>
+            <Menu size={24} />
+          </button>
+          <h1>📊 Discord Log Dashboard</h1>
+        </div>
         {stats && (
           <div className="stats">
             <div className="stat">

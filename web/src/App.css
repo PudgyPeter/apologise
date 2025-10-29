@@ -1446,8 +1446,154 @@
   background: #2b2d31;
 }
 
+/* Mobile Menu */
+.mobile-menu-btn {
+  display: none;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+.mobile-menu-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.dark-mode .mobile-menu-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.mobile-menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.mobile-menu {
+  background: white;
+  border-radius: 20px;
+  padding: 24px;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.dark-mode .mobile-menu {
+  background: #2b2d31;
+}
+
+.mobile-menu-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.mobile-menu-header h2 {
+  margin: 0;
+  color: #333;
+  font-size: 24px;
+}
+
+.dark-mode .mobile-menu-header h2 {
+  color: #dbdee1;
+}
+
+.mobile-menu-close {
+  background: none;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.mobile-menu-close:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.dark-mode .mobile-menu-close:hover {
+  background: #1e1f22;
+  color: #dbdee1;
+}
+
+.mobile-menu-buttons {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+.mobile-nav-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 32px 24px;
+  background: #f8f9fa;
+  border: 2px solid #e0e0e0;
+  border-radius: 16px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mobile-nav-btn:hover {
+  background: #e8e9eb;
+  border-color: #5865f2;
+  transform: translateY(-2px);
+}
+
+.mobile-nav-btn.active {
+  background: #5865f2;
+  border-color: #5865f2;
+  color: white;
+}
+
+.dark-mode .mobile-nav-btn {
+  background: #1e1f22;
+  border-color: #1e1f22;
+  color: #dbdee1;
+}
+
+.dark-mode .mobile-nav-btn:hover {
+  background: #313338;
+  border-color: #5865f2;
+}
+
+.dark-mode .mobile-nav-btn.active {
+  background: #5865f2;
+  border-color: #5865f2;
+  color: white;
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 /* Mobile Responsive Styles */
 @media (max-width: 768px) {
+  .mobile-menu-btn {
+    display: block;
+  }
+
   .app {
     padding: 10px;
   }
