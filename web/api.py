@@ -335,6 +335,7 @@ def update_hospitality_stat(entry_id):
                 stats[index]['updated_at'] = datetime.utcnow().isoformat()
                 
                 save_hospitality_stats(stats)
+                print(f"[📊 HOSPITALITY] Updated entry {index}: {stats[index]}")
                 return jsonify({"status": "ok", "entry": stats[index]})
             else:
                 return jsonify({"error": "Entry not found"}), 404
@@ -342,6 +343,8 @@ def update_hospitality_stat(entry_id):
             return jsonify({"error": "Invalid entry ID"}), 400
     except Exception as e:
         print(f"[💥 API] Error updating hospitality stat: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/hospitality/stats/<entry_id>', methods=['DELETE'])
@@ -356,6 +359,7 @@ def delete_hospitality_stat(entry_id):
             if 0 <= index < len(stats):
                 removed = stats.pop(index)
                 save_hospitality_stats(stats)
+                print(f"[📊 HOSPITALITY] Deleted entry {index}: {removed}")
                 return jsonify({"status": "ok", "removed": removed})
             else:
                 return jsonify({"error": "Entry not found"}), 404
@@ -363,6 +367,8 @@ def delete_hospitality_stat(entry_id):
             return jsonify({"error": "Invalid entry ID"}), 400
     except Exception as e:
         print(f"[💥 API] Error deleting hospitality stat: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/hospitality/analytics', methods=['GET'])

@@ -235,13 +235,17 @@ function App() {
     }
     
     try {
-      await axios.put(`/api/hospitality/stats/${editingIndex}`, editingStat);
+      console.log('Updating entry at index:', editingIndex);
+      console.log('Update data:', editingStat);
+      const response = await axios.put(`/api/hospitality/stats/${editingIndex}`, editingStat);
+      console.log('Update response:', response.data);
       setEditingIndex(null);
       setEditingStat(null);
       fetchHospitalityStats();
       fetchHospitalityAnalytics();
     } catch (error) {
       console.error('Error updating stat:', error);
+      console.error('Error response:', error.response?.data);
       alert('Error updating stat: ' + (error.response?.data?.error || error.message));
     }
   };
@@ -255,11 +259,15 @@ function App() {
     if (!window.confirm('Delete this entry?')) return;
     
     try {
-      await axios.delete(`/api/hospitality/stats/${index}`);
+      console.log('Deleting entry at index:', index);
+      const response = await axios.delete(`/api/hospitality/stats/${index}`);
+      console.log('Delete response:', response.data);
       fetchHospitalityStats();
       fetchHospitalityAnalytics();
     } catch (error) {
       console.error('Error deleting stat:', error);
+      console.error('Error response:', error.response?.data);
+      alert('Error deleting entry: ' + (error.response?.data?.error || error.message));
     }
   };
 
