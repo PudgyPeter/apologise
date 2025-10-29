@@ -234,22 +234,8 @@ def add_live_message():
         # Keep only last MAX_LIVE_CACHE messages
         live_messages_cache = live_messages_cache[-MAX_LIVE_CACHE:]
         
-        # Persist to today's log file immediately
-        today_log = get_today_log_path()
-        try:
-            # Load existing messages from today's log
-            existing_messages = load_log(today_log)
-            # Append new message
-            existing_messages.append(message)
-            # Keep only last 5000 messages in the file (same as bot.py)
-            existing_messages = existing_messages[-5000:]
-            # Write back to file
-            with open(today_log, "w", encoding="utf-8") as f:
-                json.dump(existing_messages, f, indent=2, ensure_ascii=False)
-            print(f"[🔴 API] Added message, cache now has {len(live_messages_cache)} messages, persisted to {today_log.name}")
-        except Exception as persist_error:
-            print(f"[💥 API] Error persisting message to disk: {persist_error}")
-            # Continue even if persistence fails - at least we have it in memory
+        # Note: Bot already writes to the log file, so we only maintain the in-memory cache here
+        print(f"[🔴 API] Added message, cache now has {len(live_messages_cache)} messages")
         
         return jsonify({"status": "ok"}), 200
     except Exception as e:
