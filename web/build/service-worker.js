@@ -1,5 +1,5 @@
 // Service Worker for PWA functionality
-const CACHE_VERSION = 'v2.0.0';
+const CACHE_VERSION = 'v2.0.1';
 const CACHE_NAME = `discord-logs-${CACHE_VERSION}`;
 const urlsToCache = [
   '/',
@@ -18,8 +18,17 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// Fetch event - network first, then cache
+// Fetch event - network first, then cache (but never cache API calls)
 self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+  
+  // Never cache API calls - always fetch fresh data
+  if (url.pathname.startsWith('/api/')) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+  
+  // For static assets, use network first strategy
   event.respondWith(
     fetch(event.request)
       .then((response) => {
