@@ -39,6 +39,7 @@ function App() {
   // Hospitality stats state
   const [hospitalityStats, setHospitalityStats] = useState([]);
   const [hospitalityAnalytics, setHospitalityAnalytics] = useState(null);
+  const [mealPeriodFilter, setMealPeriodFilter] = useState('all'); // 'all', 'lunch', 'dinner'
   const [newStat, setNewStat] = useState({
     date: '',
     miv: '',
@@ -300,6 +301,85 @@ function App() {
       reaction: '🔁'
     };
     return emojis[type] || '💬';
+  };
+
+  // Filter analytics data by meal period
+  const getFilteredAnalytics = () => {
+    if (!hospitalityAnalytics || mealPeriodFilter === 'all') {
+      return hospitalityAnalytics;
+    }
+
+    // Filter stats by meal period
+    const filteredStats = hospitalityStats.filter(stat => stat.meal_period === mealPeriodFilter);
+    
+    if (filteredStats.length === 0) {
+      return null;
+    }
+
+    // Recalculate analytics for filtered data
+    const staffData = {};
+    const dayData = {};
+    let totalMiv = 0;
+    let totalSpend = 0;
+
+    filteredStats.forEach(entry => {
+      const staff = entry.staff_member || 'Unknown';
+      const miv = parseFloat(entry.miv || 0);
+      const avgSpend = parseFloat(entry.average_spend || 0);
+
+      // Staff stats
+      if (!staffData[staff]) {
+        staffData[staff] = { total_spend: 0, total_miv: 0, count: 0 };
+      }
+      staffData[staff].total_spend += avgSpend;
+      staffData[staff].total_miv += miv;
+      staffData[staff].count += 1;
+
+      // Day of week stats
+      if (entry.date) {
+        try {
+          const date = new Date(entry.date + 'T00:00:00');
+          const dayName = format(date, 'EEEE');
+          if (!dayData[dayName]) {
+            dayData[dayName] = { total_miv: 0, total_spend: 0, count: 0 };
+          }
+          dayData[dayName].total_miv += miv;
+          dayData[dayName].total_spend += avgSpend;
+          dayData[dayName].count += 1;
+        } catch (e) {
+          // Skip invalid dates
+        }
+      }
+
+      totalMiv += miv;
+      totalSpend += avgSpend;
+    });
+
+    // Calculate staff performance
+    const staffPerformance = Object.entries(staffData).map(([staff, data]) => ({
+      staff_member: staff,
+      avg_spend: (data.total_spend / data.count).toFixed(2),
+      avg_miv: (data.total_miv / data.count).toFixed(2),
+      total_entries: data.count
+    })).sort((a, b) => parseFloat(b.avg_spend) - parseFloat(a.avg_spend));
+
+    // Calculate day of week averages
+    const dayOfWeekAvg = {};
+    Object.entries(dayData).forEach(([day, data]) => {
+      dayOfWeekAvg[day] = {
+        avg_miv: (data.total_miv / data.count).toFixed(2),
+        avg_spend: (data.total_spend / data.count).toFixed(2),
+        count: data.count
+      };
+    });
+
+    return {
+      total_entries: filteredStats.length,
+      staff_performance: staffPerformance,
+      day_of_week_avg: dayOfWeekAvg,
+      overall_avg_miv: (totalMiv / filteredStats.length).toFixed(2),
+      overall_avg_spend: (totalSpend / filteredStats.length).toFixed(2)
+    };
   };
 
   const getAvatarUrl = (entry) => {
@@ -699,7 +779,29 @@ function App() {
 
               {hospitalityAnalytics && (
                 <div className="analytics-section">
-                  <h2>Analytics</h2>
+                  <div className="analytics-header">
+                    <h2>Analytics</h2>
+                    <div className="meal-period-tabs">
+                      <button 
+                        className={mealPeriodFilter === 'all' ? 'active' : ''}
+                        onClick={() => setMealPeriodFilter('all')}
+                      >
+                        All
+                      </button>
+                      <button 
+                        className={mealPeriodFilter === 'lunch' ? 'active' : ''}
+                        onClick={() => setMealPeriodFilter('lunch')}
+                      >
+                        Lunch
+                      </button>
+                      <button 
+                        className={mealPeriodFilter === 'dinner' ? 'active' : ''}
+                        onClick={() => setMealPeriodFilter('dinner')}
+                      >
+                        Dinner
+                      </button>
+                    </div>
+                  </div>
                   
                   <div className="stats-grid">
                     <div className="stat-card">
@@ -708,7 +810,7 @@ function App() {
                       </div>
                       <div className="stat-info">
                         <div className="stat-label">Total Entries</div>
-                        <div className="stat-value">{hospitalityAnalytics.total_entries}</div>
+                        <div className="stat-value">{getFilteredAnalytics()?.total_entries || 0}</div>
                       </div>
                     </div>
                     
@@ -718,7 +820,7 @@ function App() {
                       </div>
                       <div className="stat-info">
                         <div className="stat-label">Overall Avg MIV</div>
-                        <div className="stat-value">{hospitalityAnalytics.overall_avg_miv}</div>
+                        <div className="stat-value">{getFilteredAnalytics()?.overall_avg_miv || 0}</div>
                       </div>
                     </div>
                     
@@ -728,7 +830,7 @@ function App() {
                       </div>
                       <div className="stat-info">
                         <div className="stat-label">Overall Avg Spend</div>
-                        <div className="stat-value">${hospitalityAnalytics.overall_avg_spend}</div>
+                        <div className="stat-value">${getFilteredAnalytics()?.overall_avg_spend || 0}</div>
                       </div>
                     </div>
                   </div>
@@ -746,7 +848,7 @@ function App() {
                           </tr>
                         </thead>
                         <tbody>
-                          {hospitalityAnalytics.staff_performance.map((staff, idx) => (
+                          {(getFilteredAnalytics()?.staff_performance || []).map((staff, idx) => (
                             <tr key={idx}>
                               <td>{staff.staff_member}</td>
                               <td className="highlight">${staff.avg_spend}</td>
@@ -770,7 +872,7 @@ function App() {
                           </tr>
                         </thead>
                         <tbody>
-                          {Object.entries(hospitalityAnalytics.day_of_week_avg).map(([day, data]) => (
+                          {Object.entries(getFilteredAnalytics()?.day_of_week_avg || {}).map(([day, data]) => (
                             <tr key={day}>
                               <td>{day}</td>
                               <td>{data.avg_miv}</td>
@@ -782,29 +884,6 @@ function App() {
                       </table>
                     </div>
 
-                    <div className="analytics-table">
-                      <h3><TrendingUp size={20} /> Meal Period Comparison</h3>
-                      <table>
-                        <thead>
-                          <tr>
-                            <th>Period</th>
-                            <th>Avg MIV</th>
-                            <th>Avg Spend</th>
-                            <th>Entries</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {Object.entries(hospitalityAnalytics.meal_period_avg || {}).map(([period, data]) => (
-                            <tr key={period}>
-                              <td style={{textTransform: 'capitalize'}}>{period}</td>
-                              <td>{data.avg_miv}</td>
-                              <td className="highlight">${data.avg_spend}</td>
-                              <td>{data.count}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
                   </div>
 
                   <div className="recent-entries">

@@ -1004,6 +1004,49 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
+.analytics-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.analytics-header h2 {
+  margin: 0;
+}
+
+.meal-period-tabs {
+  display: flex;
+  gap: 8px;
+  background: #f0f0f0;
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.meal-period-tabs button {
+  padding: 8px 16px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.meal-period-tabs button:hover {
+  background: rgba(88, 101, 242, 0.1);
+  color: #5865f2;
+}
+
+.meal-period-tabs button.active {
+  background: #5865f2;
+  color: white;
+}
+
 .analytics-section h2 {
   margin: 0 0 20px 0;
   color: #333;
@@ -1194,6 +1237,24 @@
 .dark-mode .hospitality-form-section,
 .dark-mode .analytics-section {
   background: #2b2d31;
+}
+
+.dark-mode .meal-period-tabs {
+  background: #1e1f22;
+}
+
+.dark-mode .meal-period-tabs button {
+  color: #b5bac1;
+}
+
+.dark-mode .meal-period-tabs button:hover {
+  background: rgba(88, 101, 242, 0.2);
+  color: #dbdee1;
+}
+
+.dark-mode .meal-period-tabs button.active {
+  background: #5865f2;
+  color: white;
 }
 
 .dark-mode .hospitality-form-section h2,
