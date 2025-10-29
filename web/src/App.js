@@ -748,6 +748,19 @@ function App() {
             </div>
           )}
 
+          {!loading && activeTab === 'logs' && logContent.length === 0 && (
+            <div className="empty-state">
+              <FileText size={64} />
+              <h3>No log selected</h3>
+              <p>Select a log file to view its contents</p>
+              
+              {/* Mobile floating button to select logs */}
+              <button className="mobile-log-selector-btn" onClick={() => setMobileLogSelectorOpen(true)}>
+                <FileText size={24} />
+              </button>
+            </div>
+          )}
+
           {!loading && activeTab === 'logs' && logContent.length > 0 && (
             <div className="content-area">
               <div className="content-header">
