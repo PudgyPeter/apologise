@@ -38,6 +38,7 @@ function App() {
   const [autoScroll, setAutoScroll] = useState(true);
   const [displayCount, setDisplayCount] = useState(50);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileLogSelectorOpen, setMobileLogSelectorOpen] = useState(false);
   
   // Hospitality stats state
   const [hospitalityStats, setHospitalityStats] = useState([]);
@@ -565,6 +566,40 @@ function App() {
         </div>
       )}
 
+      {/* Mobile Log Selector Panel */}
+      {mobileLogSelectorOpen && (
+        <div className="mobile-menu-overlay" onClick={() => setMobileLogSelectorOpen(false)}>
+          <div className="mobile-log-selector" onClick={(e) => e.stopPropagation()}>
+            <div className="mobile-menu-header">
+              <h2>Select Log</h2>
+              <button onClick={() => setMobileLogSelectorOpen(false)} className="mobile-menu-close">
+                <X size={24} />
+              </button>
+            </div>
+            <div className="mobile-log-list">
+              {logs.map((log) => (
+                <button
+                  key={log.filename}
+                  className={`mobile-log-item ${selectedLog === log.filename ? 'active' : ''}`}
+                  onClick={() => {
+                    fetchLogContent(log.filename);
+                    setMobileLogSelectorOpen(false);
+                  }}
+                >
+                  <div className="mobile-log-info">
+                    <div className="mobile-log-name">
+                      {log.is_custom && '⭐ '}
+                      {log.name}
+                    </div>
+                    <div className="mobile-log-size">{log.size_kb} KB</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       <header className="header">
         <div className="header-content">
           <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(true)}>
@@ -711,6 +746,11 @@ function App() {
                 {displayedData.map((entry, index) => renderLogEntry(entry, index))}
                 {hasMore && <div className="loading-more">Scroll for more...</div>}
               </div>
+              
+              {/* Mobile floating button to select logs */}
+              <button className="mobile-log-selector-btn" onClick={() => setMobileLogSelectorOpen(true)}>
+                <FileText size={24} />
+              </button>
             </div>
           )}
 
