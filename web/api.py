@@ -352,17 +352,22 @@ def delete_hospitality_stat(entry_id):
     """Delete a hospitality statistic entry"""
     try:
         stats = load_hospitality_stats()
+        print(f"[📊 HOSPITALITY] Delete request for index {entry_id}")
+        print(f"[📊 HOSPITALITY] Current stats count: {len(stats)}")
+        print(f"[📊 HOSPITALITY] Stats data: {stats}")
         
         # Find and remove entry by index
         try:
             index = int(entry_id)
+            print(f"[📊 HOSPITALITY] Parsed index: {index}, Valid range: 0 to {len(stats)-1}")
             if 0 <= index < len(stats):
                 removed = stats.pop(index)
                 save_hospitality_stats(stats)
                 print(f"[📊 HOSPITALITY] Deleted entry {index}: {removed}")
                 return jsonify({"status": "ok", "removed": removed})
             else:
-                return jsonify({"error": "Entry not found"}), 404
+                print(f"[💥 HOSPITALITY] Index {index} out of range (0-{len(stats)-1})")
+                return jsonify({"error": "Entry not found", "index": index, "total": len(stats)}), 404
         except ValueError:
             return jsonify({"error": "Invalid entry ID"}), 400
     except Exception as e:
