@@ -1710,12 +1710,27 @@
     display: block;
   }
 
+  html, body {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    overscroll-behavior: none;
+  }
+
   .app {
     padding: 0;
     height: 100vh;
+    height: 100dvh; /* Use dynamic viewport height */
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overscroll-behavior: none;
   }
 
   .header {
@@ -1725,6 +1740,7 @@
     z-index: 100;
     background: white;
     border-bottom: 1px solid #e0e0e0;
+    flex-shrink: 0;
   }
 
   .dark-mode .header {
@@ -1758,6 +1774,8 @@
     border-radius: 0;
     box-shadow: none;
     overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
   .tabs {
@@ -1768,10 +1786,18 @@
     padding: 16px;
     height: 100%;
     overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
   .hospitality-content {
     padding: 16px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .log-entries {
+    overscroll-behavior: contain;
   }
 
   .mobile-log-selector-btn {
