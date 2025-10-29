@@ -617,7 +617,7 @@ function App() {
             <Menu size={24} />
           </button>
           <h1>📊 Discord Log Dashboard</h1>
-          <span className="version-badge">v2.0.1</span>
+          <span className="version-badge">v2.0.2</span>
         </div>
         {stats && (
           <div className="stats">
