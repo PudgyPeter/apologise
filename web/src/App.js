@@ -640,7 +640,7 @@ function App() {
                 <h2>Add Daily Stats</h2>
                 <form onSubmit={handleSubmitStat} className="hospitality-form">
                   <div className="form-group">
-                    <label>Date (leave blank for today)</label>
+                    <label>Date (leave blank for today) - Will display as DD/MM/YYYY</label>
                     <input
                       type="date"
                       value={newStat.date}
