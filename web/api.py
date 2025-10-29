@@ -18,7 +18,7 @@ CORS(app)
 # --- PATHS (same as bot.py) ---
 RAILWAY_DIR = pathlib.Path("/mnt/data")
 RAILWAY_APP_DIR = pathlib.Path("/app/data")
-LOCAL_DIR = pathlib.Path(os.getcwd()).parent / "data"
+LOCAL_DIR = pathlib.Path(__file__).parent.parent / "data"  # Project root / data
 
 # Check Railway paths first (both common mount points)
 print(f"[🔍 PATH] Checking /mnt/data exists: {RAILWAY_DIR.exists()}, writable: {os.access(RAILWAY_DIR, os.W_OK) if RAILWAY_DIR.exists() else False}")

@@ -9,7 +9,7 @@ import os
 # --- PATHS ---
 RAILWAY_DIR = pathlib.Path("/mnt/data")
 RAILWAY_APP_DIR = pathlib.Path("/app/data")
-LOCAL_DIR = pathlib.Path(os.getcwd()).parent / "data"  # Go up to project root, then into data/
+LOCAL_DIR = pathlib.Path(__file__).parent.parent / "data"  # Project root / data
 
 # Check Railway paths first
 if RAILWAY_DIR.exists() and os.access(RAILWAY_DIR, os.W_OK):
