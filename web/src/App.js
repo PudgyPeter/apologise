@@ -616,8 +616,8 @@ function App() {
           <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(true)}>
             <Menu size={24} />
           </button>
-          <h1>📊 Discord Log Dashboard</h1>
-          <span className="version-badge">v2.0.4</span>
+          <h1>📊 Pudge's Dashboard</h1>
+          <span className="version-badge">v2.0.5</span>
         </div>
         {stats && (
           <div className="stats">
