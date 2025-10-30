@@ -485,6 +485,17 @@ def get_hospitality_analytics():
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
+# Explicit route for hospitality (React Router will handle it)
+@app.route('/hospitality')
+def serve_hospitality():
+    """Serve React app for hospitality route"""
+    print(f"[🌐 ROUTE] Hospitality route hit!")
+    try:
+        return send_from_directory(app.static_folder, 'index.html')
+    except Exception as e:
+        print(f"[🌐 ROUTE] Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
 # Catch-all route for React app (must be last!)
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
