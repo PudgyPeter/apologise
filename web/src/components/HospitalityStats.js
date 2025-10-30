@@ -26,6 +26,8 @@ function HospitalityStats({ darkMode, setDarkMode }) {
   });
   const [editingIndex, setEditingIndex] = useState(null);
   const [editingStat, setEditingStat] = useState(null);
+  const [messageInput, setMessageInput] = useState('');
+  const [parsedData, setParsedData] = useState(null);
 
   useEffect(() => {
     fetchHospitalityStats();
@@ -73,6 +75,114 @@ function HospitalityStats({ darkMode, setDarkMode }) {
     }
   };
 
+  const parseManagerMessage = (message) => {
+    try {
+      const lines = message.split('\n').map(line => line.trim()).filter(line => line);
+      const data = {
+        managers: [],
+        predMiv: null,
+        actualMiv: null,
+        averageSpend: null,
+        safe: null,
+        till: null,
+        cashExpected: null,
+        cashActual: null,
+        stationPlan: [],
+        closingPlan: [],
+        allStaff: new Set()
+      };
+
+      let currentSection = null;
+
+      for (const line of lines) {
+        // Manager names
+        if (line.startsWith('Manager Name')) {
+          const match = line.match(/Manager Name\(s\)?:\s*(.+)/i);
+          if (match) {
+            data.managers = match[1].split(/[,\s]+/).filter(n => n);
+            data.managers.forEach(m => data.allStaff.add(m));
+          }
+        }
+        // Pred MIV
+        else if (line.startsWith('Pred MIV')) {
+          const match = line.match(/Pred MIV:\s*(\d+)/i);
+          if (match) data.predMiv = parseInt(match[1]);
+        }
+        // Actual MIV
+        else if (line.startsWith('Actual MIV')) {
+          const match = line.match(/Actual MIV:\s*(\d+)/i);
+          if (match) data.actualMiv = parseInt(match[1]);
+        }
+        // Average Spend
+        else if (line.startsWith('A$')) {
+          const match = line.match(/A\$:\s*([\d.]+)/i);
+          if (match) data.averageSpend = parseFloat(match[1]);
+        }
+        // Safe
+        else if (line.startsWith('Safe:')) {
+          const match = line.match(/Safe:\s*([\d.]+)/i);
+          if (match) data.safe = parseFloat(match[1]);
+        }
+        // Till
+        else if (line.startsWith('Till:')) {
+          const match = line.match(/Till:\s*([\d.]+)/i);
+          if (match) data.till = parseFloat(match[1]);
+        }
+        // Cash Expected
+        else if (line.startsWith('Cash Expected')) {
+          const match = line.match(/Cash Expected:\s*\$?([\d.]+)/i);
+          if (match) data.cashExpected = parseFloat(match[1]);
+        }
+        // Cash Actual
+        else if (line.startsWith('Cash Actual')) {
+          const match = line.match(/Cash Actual:\s*\$?([\d.]+)/i);
+          if (match) data.cashActual = parseFloat(match[1]);
+        }
+        // Section headers
+        else if (line.startsWith('Station Plan')) {
+          currentSection = 'station';
+        }
+        else if (line.startsWith('Closing Plan')) {
+          currentSection = 'closing';
+        }
+        // Station/Role assignments
+        else if (currentSection && line.includes(':')) {
+          const [role, names] = line.split(':').map(s => s.trim());
+          const staffNames = names.split(/[,\s]+/).filter(n => n);
+          staffNames.forEach(name => data.allStaff.add(name));
+          
+          if (currentSection === 'station') {
+            data.stationPlan.push({ role, staff: staffNames });
+          } else if (currentSection === 'closing') {
+            data.closingPlan.push({ role, staff: staffNames });
+          }
+        }
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error parsing message:', error);
+      return null;
+    }
+  };
+
+  const handleParseMessage = () => {
+    const parsed = parseManagerMessage(messageInput);
+    if (parsed) {
+      setParsedData(parsed);
+      // Auto-fill the form with parsed data
+      setNewStat({
+        date: '',
+        miv: parsed.actualMiv || '',
+        average_spend: parsed.averageSpend || '',
+        staff_member: parsed.managers.join(', ') || '',
+        meal_period: 'dinner' // Manager reports are typically for dinner
+      });
+    } else {
+      alert('Could not parse message. Please check the format.');
+    }
+  };
+
   const handleSubmitStat = async (e) => {
     e.preventDefault();
     
@@ -84,6 +194,8 @@ function HospitalityStats({ darkMode, setDarkMode }) {
     try {
       await axios.post('/api/hospitality/stats', newStat);
       setNewStat({ date: '', miv: '', average_spend: '', staff_member: '', meal_period: 'lunch' });
+      setMessageInput('');
+      setParsedData(null);
       fetchHospitalityStats();
       fetchHospitalityAnalytics();
     } catch (error) {
@@ -249,6 +361,83 @@ function HospitalityStats({ darkMode, setDarkMode }) {
       <div className="container" style={{ gridTemplateColumns: '1fr', height: 'auto' }}>
         <main className="main-content">
           <div className="content-area hospitality-content">
+            {/* Message Parser Section */}
+            <div className="hospitality-form-section">
+              <h2>📋 Parse Manager Report</h2>
+              <p style={{marginBottom: '16px', color: '#666'}}>Paste the daily manager message below to automatically extract stats</p>
+              <div className="form-group">
+                <label>Manager Report Message</label>
+                <textarea
+                  value={messageInput}
+                  onChange={(e) => setMessageInput(e.target.value)}
+                  placeholder="Paste the manager report here..."
+                  rows="12"
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '2px solid #e0e0e0',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontFamily: 'monospace',
+                    resize: 'vertical'
+                  }}
+                />
+              </div>
+              <button 
+                type="button"
+                onClick={handleParseMessage}
+                className="submit-btn"
+                disabled={!messageInput.trim()}
+              >
+                Parse Message
+              </button>
+
+              {parsedData && (
+                <div style={{
+                  marginTop: '20px',
+                  padding: '16px',
+                  background: '#f0f9ff',
+                  border: '2px solid #0ea5e9',
+                  borderRadius: '8px'
+                }}>
+                  <h3 style={{margin: '0 0 12px 0', color: '#0369a1'}}>✅ Parsed Data</h3>
+                  <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', fontSize: '14px'}}>
+                    <div><strong>Manager(s):</strong> {parsedData.managers.join(', ')}</div>
+                    <div><strong>Pred MIV:</strong> {parsedData.predMiv}</div>
+                    <div><strong>Actual MIV:</strong> {parsedData.actualMiv}</div>
+                    <div><strong>Avg Spend:</strong> ${parsedData.averageSpend}</div>
+                    <div><strong>Safe:</strong> ${parsedData.safe}</div>
+                    <div><strong>Till:</strong> ${parsedData.till}</div>
+                    <div><strong>Cash Expected:</strong> ${parsedData.cashExpected}</div>
+                    <div><strong>Cash Actual:</strong> ${parsedData.cashActual}</div>
+                  </div>
+                  <div style={{marginTop: '12px'}}>
+                    <strong>Staff Working:</strong> {Array.from(parsedData.allStaff).join(', ')}
+                  </div>
+                  {parsedData.stationPlan.length > 0 && (
+                    <div style={{marginTop: '12px'}}>
+                      <strong>Station Plan:</strong>
+                      <div style={{marginLeft: '12px', marginTop: '4px'}}>
+                        {parsedData.stationPlan.map((station, idx) => (
+                          <div key={idx}>{station.role}: {station.staff.join(', ')}</div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {parsedData.closingPlan.length > 0 && (
+                    <div style={{marginTop: '12px'}}>
+                      <strong>Closing Plan:</strong>
+                      <div style={{marginLeft: '12px', marginTop: '4px'}}>
+                        {parsedData.closingPlan.map((station, idx) => (
+                          <div key={idx}>{station.role}: {station.staff.join(', ')}</div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             <div className="hospitality-form-section">
               <h2>Add Daily Stats</h2>
               <form onSubmit={handleSubmitStat} className="hospitality-form">
