@@ -490,34 +490,50 @@ def get_hospitality_analytics():
 @app.route('/<path:path>')
 def serve_react(path):
     """Serve React app for all non-API routes"""
+    print(f"[🌐 ROUTE] Requested path: '{path}'")
+    print(f"[🌐 ROUTE] Static folder: {app.static_folder}")
+    print(f"[🌐 ROUTE] Static folder exists: {os.path.exists(app.static_folder)}")
+    
     # Skip API routes
     if path.startswith('api/'):
         return jsonify({"error": "Not found"}), 404
     
     # Serve static files (CSS, JS, images, etc.)
-    if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
+    static_file_path = os.path.join(app.static_folder, path)
+    if path != "" and os.path.exists(static_file_path):
+        print(f"[🌐 ROUTE] Serving static file: {path}")
         return send_from_directory(app.static_folder, path)
     
     # For all other routes (including /hospitality), serve index.html
     # This allows React Router to handle client-side routing
     try:
         index_path = os.path.join(app.static_folder, 'index.html')
+        print(f"[🌐 ROUTE] Checking index.html at: {index_path}")
+        print(f"[🌐 ROUTE] Index exists: {os.path.exists(index_path)}")
+        
         if os.path.exists(index_path):
+            print(f"[🌐 ROUTE] ✅ Serving index.html for path: {path}")
             return send_from_directory(app.static_folder, 'index.html')
         else:
+            print(f"[🌐 ROUTE] ❌ Index.html not found!")
             return jsonify({
                 "error": "Build folder not found",
                 "static_folder": app.static_folder,
+                "index_path": index_path,
                 "index_exists": os.path.exists(index_path),
                 "cwd": os.getcwd(),
                 "build_contents": os.listdir(app.static_folder) if os.path.exists(app.static_folder) else "folder not found"
             }), 500
     except Exception as e:
+        print(f"[🌐 ROUTE] ❌ Exception: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             "error": "Error serving React app",
             "static_folder": app.static_folder,
             "cwd": os.getcwd(),
-            "message": str(e)
+            "message": str(e),
+            "traceback": traceback.format_exc()
         }), 500
 
 if __name__ == '__main__':
