@@ -488,10 +488,17 @@ def get_hospitality_analytics():
 # Explicit route for hospitality (React Router will handle it)
 @app.route('/hospitality')
 def serve_hospitality():
-    """Serve React app for hospitality route"""
+    """Serve hospitality-specific HTML with correct manifest"""
     print(f"[🌐 ROUTE] Hospitality route hit!")
     try:
-        return send_from_directory(app.static_folder, 'index.html')
+        # Try to serve hospitality.html first (for PWA)
+        hospitality_html = os.path.join(app.static_folder, 'hospitality.html')
+        if os.path.exists(hospitality_html):
+            print(f"[🌐 ROUTE] Serving hospitality.html")
+            return send_from_directory(app.static_folder, 'hospitality.html')
+        else:
+            print(f"[🌐 ROUTE] hospitality.html not found, serving index.html")
+            return send_from_directory(app.static_folder, 'index.html')
     except Exception as e:
         print(f"[🌐 ROUTE] Error: {e}")
         return jsonify({"error": str(e)}), 500
