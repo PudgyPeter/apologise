@@ -1,0 +1,22 @@
+{
+  "short_name": "Hospitality",
+  "name": "Hospitality Stats Tracker",
+  "description": "Track and analyze hospitality statistics",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "start_url": "/hospitality",
+  "scope": "/hospitality",
+  "display": "standalone",
+  "theme_color": "#5865f2",
+  "background_color": "#1e1f22"
+}

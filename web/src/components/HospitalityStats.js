@@ -30,6 +30,28 @@ function HospitalityStats({ darkMode, setDarkMode }) {
   useEffect(() => {
     fetchHospitalityStats();
     fetchHospitalityAnalytics();
+    
+    // Update manifest for PWA to use hospitality-specific settings
+    const manifestLink = document.querySelector('link[rel="manifest"]');
+    if (manifestLink) {
+      manifestLink.href = '/hospitality-manifest.json';
+    }
+    
+    // Update page title and meta tags for hospitality section
+    document.title = 'Hospitality Stats Tracker';
+    const metaDescription = document.querySelector('meta[name="description"]');
+    if (metaDescription) {
+      metaDescription.content = 'Track and analyze hospitality statistics';
+    }
+    
+    // Cleanup: restore original manifest when component unmounts
+    return () => {
+      const manifestLink = document.querySelector('link[rel="manifest"]');
+      if (manifestLink) {
+        manifestLink.href = '/manifest.json';
+      }
+      document.title = 'Discord Log Dashboard';
+    };
   }, []);
 
   const fetchHospitalityStats = async () => {
