@@ -376,14 +376,16 @@ function DiscordDashboard({ darkMode, setDarkMode }) {
             <Menu size={24} />
           </button>
           <h1>📊 Discord Log Dashboard</h1>
-          <span className="version-badge">v2.0.5</span>
-          <button 
-            className="dark-mode-toggle" 
-            onClick={() => setDarkMode(!darkMode)}
-            title={darkMode ? 'Light Mode' : 'Dark Mode'}
-          >
-            {darkMode ? '☀️' : '🌙'}
-          </button>
+          <div className="header-actions">
+            <span className="version-badge">v2.0.5</span>
+            <button 
+              className="dark-mode-toggle" 
+              onClick={() => setDarkMode(!darkMode)}
+              title={darkMode ? 'Light Mode' : 'Dark Mode'}
+            >
+              {darkMode ? '☀️' : '🌙'}
+            </button>
+          </div>
         </div>
         {stats && (
           <div className="stats">

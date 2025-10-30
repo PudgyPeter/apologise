@@ -693,7 +693,6 @@
   font-size: 20px;
   cursor: pointer;
   transition: all 0.2s;
-  margin-left: auto;
 }
 
 .dark-mode-toggle:hover {
@@ -1593,8 +1592,14 @@
   flex: 1;
 }
 
-.version-badge {
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-left: auto;
+}
+
+.version-badge {
   padding: 4px 12px;
   background: rgba(88, 101, 242, 0.1);
   color: #5865f2;
