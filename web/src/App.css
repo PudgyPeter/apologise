@@ -576,13 +576,15 @@
 
   .header {
     padding: 16px;
-    flex-direction: column;
-    gap: 16px;
   }
 
   .header h1 {
     font-size: 20px;
     margin-bottom: 0;
+  }
+  
+  .header-content {
+    flex-wrap: wrap;
   }
 
   .stats {
