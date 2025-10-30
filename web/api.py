@@ -494,16 +494,27 @@ def serve_react(path):
     if path.startswith('api/'):
         return jsonify({"error": "Not found"}), 404
     
-    # Serve static files
+    # Serve static files (CSS, JS, images, etc.)
     if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
         return send_from_directory(app.static_folder, path)
     
-    # Serve index.html for all other routes
+    # For all other routes (including /hospitality), serve index.html
+    # This allows React Router to handle client-side routing
     try:
-        return send_from_directory(app.static_folder, 'index.html')
+        index_path = os.path.join(app.static_folder, 'index.html')
+        if os.path.exists(index_path):
+            return send_from_directory(app.static_folder, 'index.html')
+        else:
+            return jsonify({
+                "error": "Build folder not found",
+                "static_folder": app.static_folder,
+                "index_exists": os.path.exists(index_path),
+                "cwd": os.getcwd(),
+                "build_contents": os.listdir(app.static_folder) if os.path.exists(app.static_folder) else "folder not found"
+            }), 500
     except Exception as e:
         return jsonify({
-            "error": "Build folder not found",
+            "error": "Error serving React app",
             "static_folder": app.static_folder,
             "cwd": os.getcwd(),
             "message": str(e)
