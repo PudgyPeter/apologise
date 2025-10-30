@@ -377,6 +377,13 @@ function DiscordDashboard({ darkMode, setDarkMode }) {
           </button>
           <h1>📊 Discord Log Dashboard</h1>
           <span className="version-badge">v2.0.5</span>
+          <button 
+            className="dark-mode-toggle" 
+            onClick={() => setDarkMode(!darkMode)}
+            title={darkMode ? 'Light Mode' : 'Dark Mode'}
+          >
+            {darkMode ? '☀️' : '🌙'}
+          </button>
         </div>
         {stats && (
           <div className="stats">
@@ -392,13 +399,6 @@ function DiscordDashboard({ darkMode, setDarkMode }) {
               <MessageSquare size={20} />
               <span>{stats.total_messages.toLocaleString()} Messages</span>
             </div>
-            <button 
-              className="dark-mode-toggle" 
-              onClick={() => setDarkMode(!darkMode)}
-              title={darkMode ? 'Light Mode' : 'Dark Mode'}
-            >
-              {darkMode ? '☀️' : '🌙'}
-            </button>
           </div>
         )}
       </header>

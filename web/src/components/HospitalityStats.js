@@ -234,8 +234,6 @@ function HospitalityStats({ darkMode, setDarkMode }) {
         <div className="header-content">
           <h1>📊 Hospitality Stats Dashboard</h1>
           <span className="version-badge">v2.0.5</span>
-        </div>
-        <div className="stats">
           <button 
             className="dark-mode-toggle" 
             onClick={() => setDarkMode(!darkMode)}
