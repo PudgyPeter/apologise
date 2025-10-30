@@ -9,7 +9,10 @@ import {
   X,
   Check,
   Trash2,
-  Calendar
+  Calendar,
+  Menu,
+  FileText,
+  MessageSquare
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -28,6 +31,8 @@ function HospitalityStats({ darkMode, setDarkMode }) {
   const [editingStat, setEditingStat] = useState(null);
   const [messageInput, setMessageInput] = useState('');
   const [parsedData, setParsedData] = useState(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('parser');
 
   useEffect(() => {
     fetchHospitalityStats();
@@ -340,10 +345,55 @@ function HospitalityStats({ darkMode, setDarkMode }) {
     };
   };
 
+  const handleMobileNav = (tab) => {
+    setActiveTab(tab);
+    setMobileMenuOpen(false);
+  };
+
   return (
     <div className={`app ${darkMode ? 'dark-mode' : ''}`}>
+      {/* Mobile Navigation Menu */}
+      {mobileMenuOpen && (
+        <div className="mobile-menu-overlay" onClick={() => setMobileMenuOpen(false)}>
+          <div className="mobile-menu" onClick={(e) => e.stopPropagation()}>
+            <div className="mobile-menu-header">
+              <h2>Navigation</h2>
+              <button onClick={() => setMobileMenuOpen(false)} className="mobile-menu-close">
+                <X size={24} />
+              </button>
+            </div>
+            <div className="mobile-menu-buttons">
+              <button 
+                className={`mobile-nav-btn ${activeTab === 'parser' ? 'active' : ''}`}
+                onClick={() => handleMobileNav('parser')}
+              >
+                <MessageSquare size={32} />
+                <span>Parse Report</span>
+              </button>
+              <button 
+                className={`mobile-nav-btn ${activeTab === 'manual' ? 'active' : ''}`}
+                onClick={() => handleMobileNav('manual')}
+              >
+                <FileText size={32} />
+                <span>Manual Entry</span>
+              </button>
+              <button 
+                className={`mobile-nav-btn ${activeTab === 'analytics' ? 'active' : ''}`}
+                onClick={() => handleMobileNav('analytics')}
+              >
+                <BarChart3 size={32} />
+                <span>Analytics</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <header className="header">
         <div className="header-content">
+          <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(true)}>
+            <Menu size={24} />
+          </button>
           <h1>📊 Hospitality Stats Dashboard</h1>
           <div className="header-actions">
             <span className="version-badge">v2.0.5</span>
@@ -362,6 +412,7 @@ function HospitalityStats({ darkMode, setDarkMode }) {
         <main className="main-content">
           <div className="content-area hospitality-content">
             {/* Message Parser Section */}
+            {activeTab === 'parser' && (
             <div className="hospitality-form-section">
               <h2>📋 Parse Manager Report</h2>
               <p style={{marginBottom: '16px', color: '#666'}}>Paste the daily manager message below to automatically extract stats</p>
@@ -406,10 +457,6 @@ function HospitalityStats({ darkMode, setDarkMode }) {
                     <div><strong>Pred MIV:</strong> {parsedData.predMiv}</div>
                     <div><strong>Actual MIV:</strong> {parsedData.actualMiv}</div>
                     <div><strong>Avg Spend:</strong> ${parsedData.averageSpend}</div>
-                    <div><strong>Safe:</strong> ${parsedData.safe}</div>
-                    <div><strong>Till:</strong> ${parsedData.till}</div>
-                    <div><strong>Cash Expected:</strong> ${parsedData.cashExpected}</div>
-                    <div><strong>Cash Actual:</strong> ${parsedData.cashActual}</div>
                   </div>
                   <div style={{marginTop: '12px'}}>
                     <strong>Staff Working:</strong> {Array.from(parsedData.allStaff).join(', ')}
@@ -437,7 +484,10 @@ function HospitalityStats({ darkMode, setDarkMode }) {
                 </div>
               )}
             </div>
+            )}
 
+            {/* Manual Entry Section */}
+            {activeTab === 'manual' && (
             <div className="hospitality-form-section">
               <h2>Add Daily Stats</h2>
               <form onSubmit={handleSubmitStat} className="hospitality-form">
@@ -498,8 +548,10 @@ function HospitalityStats({ darkMode, setDarkMode }) {
                 </button>
               </form>
             </div>
+            )}
 
-            {hospitalityAnalytics && (
+            {/* Analytics Section */}
+            {activeTab === 'analytics' && hospitalityAnalytics && (
               <div className="analytics-section">
                 <div className="analytics-header">
                   <h2>Analytics</h2>
