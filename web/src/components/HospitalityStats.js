@@ -32,11 +32,22 @@ function HospitalityStats({ darkMode, setDarkMode }) {
   const [messageInput, setMessageInput] = useState('');
   const [parsedData, setParsedData] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('parser');
+  const [activeTab, setActiveTab] = useState('manual');
+  const [managerReports, setManagerReports] = useState([]);
 
   useEffect(() => {
     fetchHospitalityStats();
     fetchHospitalityAnalytics();
+    
+    // Load saved manager reports from localStorage
+    const savedReports = localStorage.getItem('managerReports');
+    if (savedReports) {
+      try {
+        setManagerReports(JSON.parse(savedReports));
+      } catch (error) {
+        console.error('Error loading manager reports:', error);
+      }
+    }
     
     // Update manifest for PWA to use hospitality-specific settings
     const manifestLink = document.querySelector('link[rel="manifest"]');
@@ -175,6 +186,17 @@ function HospitalityStats({ darkMode, setDarkMode }) {
     const parsed = parseManagerMessage(messageInput);
     if (parsed) {
       setParsedData(parsed);
+      // Save to manager reports with timestamp
+      const reportWithDate = {
+        ...parsed,
+        date: new Date().toISOString(),
+        rawMessage: messageInput
+      };
+      const updatedReports = [...managerReports, reportWithDate];
+      setManagerReports(updatedReports);
+      // Save to localStorage
+      localStorage.setItem('managerReports', JSON.stringify(updatedReports));
+      
       // Auto-fill the form with parsed data
       setNewStat({
         date: '',
@@ -348,6 +370,131 @@ function HospitalityStats({ darkMode, setDarkMode }) {
   const handleMobileNav = (tab) => {
     setActiveTab(tab);
     setMobileMenuOpen(false);
+  };
+
+  // Calculate comprehensive analytics from manager reports
+  const calculateManagerAnalytics = () => {
+    if (managerReports.length === 0) return null;
+
+    const now = new Date();
+    const staffStats = {};
+    const dailyStats = [];
+    const weeklyStats = {};
+    const monthlyStats = {};
+    const yearlyStats = {};
+
+    managerReports.forEach(report => {
+      const reportDate = new Date(report.date);
+      const dayKey = reportDate.toISOString().split('T')[0];
+      const weekKey = `${reportDate.getFullYear()}-W${Math.ceil((reportDate.getDate()) / 7)}`;
+      const monthKey = `${reportDate.getFullYear()}-${String(reportDate.getMonth() + 1).padStart(2, '0')}`;
+      const yearKey = `${reportDate.getFullYear()}`;
+
+      // Staff statistics
+      report.allStaff.forEach(staffName => {
+        if (!staffStats[staffName]) {
+          staffStats[staffName] = {
+            name: staffName,
+            totalShifts: 0,
+            daysWorked: new Set(),
+            totalMiv: 0,
+            totalSpend: 0,
+            roles: {},
+            shiftsPerDay: {}
+          };
+        }
+        
+        staffStats[staffName].totalShifts++;
+        staffStats[staffName].daysWorked.add(dayKey);
+        staffStats[staffName].totalMiv += report.actualMiv || 0;
+        staffStats[staffName].totalSpend += report.averageSpend || 0;
+
+        // Track day of week
+        const dayOfWeek = reportDate.toLocaleDateString('en-US', { weekday: 'long' });
+        staffStats[staffName].shiftsPerDay[dayOfWeek] = (staffStats[staffName].shiftsPerDay[dayOfWeek] || 0) + 1;
+
+        // Track roles
+        [...report.stationPlan, ...report.closingPlan].forEach(station => {
+          if (station.staff.includes(staffName)) {
+            staffStats[staffName].roles[station.role] = (staffStats[staffName].roles[station.role] || 0) + 1;
+          }
+        });
+      });
+
+      // Daily stats
+      dailyStats.push({
+        date: dayKey,
+        miv: report.actualMiv,
+        predMiv: report.predMiv,
+        avgSpend: report.averageSpend,
+        managers: report.managers,
+        staffCount: report.allStaff.size
+      });
+
+      // Weekly aggregation
+      if (!weeklyStats[weekKey]) {
+        weeklyStats[weekKey] = { totalMiv: 0, totalSpend: 0, count: 0, staffSet: new Set() };
+      }
+      weeklyStats[weekKey].totalMiv += report.actualMiv || 0;
+      weeklyStats[weekKey].totalSpend += report.averageSpend || 0;
+      weeklyStats[weekKey].count++;
+      report.allStaff.forEach(s => weeklyStats[weekKey].staffSet.add(s));
+
+      // Monthly aggregation
+      if (!monthlyStats[monthKey]) {
+        monthlyStats[monthKey] = { totalMiv: 0, totalSpend: 0, count: 0, staffSet: new Set() };
+      }
+      monthlyStats[monthKey].totalMiv += report.actualMiv || 0;
+      monthlyStats[monthKey].totalSpend += report.averageSpend || 0;
+      monthlyStats[monthKey].count++;
+      report.allStaff.forEach(s => monthlyStats[monthKey].staffSet.add(s));
+
+      // Yearly aggregation
+      if (!yearlyStats[yearKey]) {
+        yearlyStats[yearKey] = { totalMiv: 0, totalSpend: 0, count: 0, staffSet: new Set() };
+      }
+      yearlyStats[yearKey].totalMiv += report.actualMiv || 0;
+      yearlyStats[yearKey].totalSpend += report.averageSpend || 0;
+      yearlyStats[yearKey].count++;
+      report.allStaff.forEach(s => yearlyStats[yearKey].staffSet.add(s));
+    });
+
+    // Process staff stats
+    const processedStaffStats = Object.values(staffStats).map(staff => ({
+      ...staff,
+      daysWorked: staff.daysWorked.size,
+      avgMiv: (staff.totalMiv / staff.totalShifts).toFixed(2),
+      avgSpend: (staff.totalSpend / staff.totalShifts).toFixed(2),
+      mostFrequentDay: Object.entries(staff.shiftsPerDay).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A',
+      topRole: Object.entries(staff.roles).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A'
+    })).sort((a, b) => b.totalShifts - a.totalShifts);
+
+    // Calculate averages
+    const calculateAvg = (stats) => {
+      const entries = Object.entries(stats);
+      if (entries.length === 0) return { avgMiv: 0, avgSpend: 0 };
+      
+      const totals = entries.reduce((acc, [key, val]) => ({
+        miv: acc.miv + val.totalMiv,
+        spend: acc.spend + val.totalSpend,
+        count: acc.count + val.count
+      }), { miv: 0, spend: 0, count: 0 });
+
+      return {
+        avgMiv: (totals.miv / totals.count).toFixed(2),
+        avgSpend: (totals.spend / totals.count).toFixed(2)
+      };
+    };
+
+    return {
+      staffStats: processedStaffStats,
+      dailyStats: dailyStats.sort((a, b) => new Date(b.date) - new Date(a.date)),
+      weeklyAvg: calculateAvg(weeklyStats),
+      monthlyAvg: calculateAvg(monthlyStats),
+      yearlyAvg: calculateAvg(yearlyStats),
+      totalReports: managerReports.length,
+      uniqueStaff: Object.keys(staffStats).length
+    };
   };
 
   return (
@@ -547,11 +694,9 @@ function HospitalityStats({ darkMode, setDarkMode }) {
                   Add Entry
                 </button>
               </form>
-            </div>
-            )}
 
-            {/* Analytics Section */}
-            {activeTab === 'analytics' && hospitalityAnalytics && (
+              {/* Manual Entry Analytics - shown below the form */}
+              {hospitalityAnalytics && (
               <div className="analytics-section">
                 <div className="analytics-header">
                   <h2>Analytics</h2>
@@ -708,7 +853,140 @@ function HospitalityStats({ darkMode, setDarkMode }) {
                   </div>
                 </div>
               </div>
+              )}
+            </div>
             )}
+
+            {/* Manager Analytics Section */}
+            {activeTab === 'analytics' && (() => {
+              const managerAnalytics = calculateManagerAnalytics();
+              
+              if (!managerAnalytics) {
+                return (
+                  <div className="hospitality-form-section">
+                    <h2>📊 Manager Report Analytics</h2>
+                    <p style={{textAlign: 'center', padding: '40px', color: '#666'}}>
+                      No manager reports parsed yet. Go to "Parse Report" to add data.
+                    </p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="hospitality-form-section">
+                  <h2>📊 Manager Report Analytics</h2>
+                  
+                  {/* Summary Stats */}
+                  <div className="stats-grid" style={{marginBottom: '24px'}}>
+                    <div className="stat-card">
+                      <div className="stat-icon"><FileText size={24} /></div>
+                      <div className="stat-info">
+                        <div className="stat-label">Total Reports</div>
+                        <div className="stat-value">{managerAnalytics.totalReports}</div>
+                      </div>
+                    </div>
+                    <div className="stat-card">
+                      <div className="stat-icon"><Users size={24} /></div>
+                      <div className="stat-info">
+                        <div className="stat-label">Unique Staff</div>
+                        <div className="stat-value">{managerAnalytics.uniqueStaff}</div>
+                      </div>
+                    </div>
+                    <div className="stat-card">
+                      <div className="stat-icon"><TrendingUp size={24} /></div>
+                      <div className="stat-info">
+                        <div className="stat-label">Weekly Avg MIV</div>
+                        <div className="stat-value">{managerAnalytics.weeklyAvg.avgMiv}</div>
+                      </div>
+                    </div>
+                    <div className="stat-card">
+                      <div className="stat-icon"><DollarSign size={24} /></div>
+                      <div className="stat-info">
+                        <div className="stat-label">Weekly Avg Spend</div>
+                        <div className="stat-value">${managerAnalytics.weeklyAvg.avgSpend}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Period Averages */}
+                  <div style={{marginBottom: '24px', padding: '16px', background: darkMode ? '#2b2d31' : '#f5f5f5', borderRadius: '8px'}}>
+                    <h3 style={{marginTop: 0}}>Period Averages</h3>
+                    <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px'}}>
+                      <div>
+                        <strong>Monthly:</strong>
+                        <div>MIV: {managerAnalytics.monthlyAvg.avgMiv}</div>
+                        <div>Spend: ${managerAnalytics.monthlyAvg.avgSpend}</div>
+                      </div>
+                      <div>
+                        <strong>Yearly:</strong>
+                        <div>MIV: {managerAnalytics.yearlyAvg.avgMiv}</div>
+                        <div>Spend: ${managerAnalytics.yearlyAvg.avgSpend}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Staff Performance */}
+                  <div style={{marginBottom: '24px'}}>
+                    <h3>Staff Performance</h3>
+                    <div style={{overflowX: 'auto'}}>
+                      <table style={{width: '100%', borderCollapse: 'collapse'}}>
+                        <thead>
+                          <tr style={{borderBottom: '2px solid #ddd'}}>
+                            <th style={{padding: '12px', textAlign: 'left'}}>Name</th>
+                            <th style={{padding: '12px', textAlign: 'center'}}>Total Shifts</th>
+                            <th style={{padding: '12px', textAlign: 'center'}}>Days Worked</th>
+                            <th style={{padding: '12px', textAlign: 'center'}}>Most Frequent Day</th>
+                            <th style={{padding: '12px', textAlign: 'center'}}>Top Role</th>
+                            <th style={{padding: '12px', textAlign: 'center'}}>Avg MIV</th>
+                            <th style={{padding: '12px', textAlign: 'center'}}>Avg Spend</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {managerAnalytics.staffStats.map((staff, idx) => (
+                            <tr key={idx} style={{borderBottom: '1px solid #eee'}}>
+                              <td style={{padding: '12px', fontWeight: 'bold'}}>{staff.name}</td>
+                              <td style={{padding: '12px', textAlign: 'center'}}>{staff.totalShifts}</td>
+                              <td style={{padding: '12px', textAlign: 'center'}}>{staff.daysWorked}</td>
+                              <td style={{padding: '12px', textAlign: 'center'}}>{staff.mostFrequentDay}</td>
+                              <td style={{padding: '12px', textAlign: 'center'}}>{staff.topRole}</td>
+                              <td style={{padding: '12px', textAlign: 'center'}}>{staff.avgMiv}</td>
+                              <td style={{padding: '12px', textAlign: 'center'}}>${staff.avgSpend}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Recent Reports */}
+                  <div>
+                    <h3>Recent Reports</h3>
+                    {managerAnalytics.dailyStats.slice(0, 10).map((day, idx) => (
+                      <div key={idx} style={{
+                        padding: '12px',
+                        marginBottom: '8px',
+                        background: darkMode ? '#2b2d31' : '#f9f9f9',
+                        borderRadius: '8px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                      }}>
+                        <div>
+                          <strong>{new Date(day.date).toLocaleDateString()}</strong>
+                          <div style={{fontSize: '14px', color: '#666'}}>
+                            Manager: {day.managers.join(', ')} | Staff: {day.staffCount}
+                          </div>
+                        </div>
+                        <div style={{textAlign: 'right'}}>
+                          <div>MIV: {day.miv} (Pred: {day.predMiv})</div>
+                          <div>Spend: ${day.avgSpend}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Edit Modal */}
             {editingIndex !== null && editingStat && (
