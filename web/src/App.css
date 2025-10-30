@@ -13,7 +13,7 @@
 
 .header h1 {
   font-size: 28px;
-  margin-bottom: 16px;
+  margin: 0;
   color: #333;
 }
 
@@ -1591,7 +1591,10 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  flex: 1;
+}
+
+.header-content:has(+ .stats) {
+  margin-bottom: 16px;
 }
 
 .header-actions {
