@@ -358,12 +358,42 @@ function HospitalityStats({ darkMode, setDarkMode }) {
       };
     });
 
+    // Calculate best performers for different time periods
+    const now = new Date();
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const calculateBestPerformer = (stats) => {
+      const staffData = {};
+      stats.forEach(entry => {
+        const staff = entry.staff_member;
+        const avgSpend = parseFloat(entry.average_spend);
+        if (!staffData[staff]) {
+          staffData[staff] = { total_spend: 0, count: 0 };
+        }
+        staffData[staff].total_spend += avgSpend;
+        staffData[staff].count += 1;
+      });
+      
+      const best = Object.entries(staffData)
+        .map(([staff, data]) => ({ staff, avg: (data.total_spend / data.count).toFixed(2) }))
+        .sort((a, b) => parseFloat(b.avg) - parseFloat(a.avg))[0];
+      
+      return best || { staff: 'N/A', avg: '0.00' };
+    };
+
+    const weekStats = filteredStats.filter(s => s.date && new Date(s.date) >= oneWeekAgo);
+    const monthStats = filteredStats.filter(s => s.date && new Date(s.date) >= oneMonthAgo);
+
     return {
       total_entries: filteredStats.length,
       staff_performance: staffPerformance,
       day_of_week_avg: dayOfWeekAvg,
       overall_avg_miv: (totalMiv / filteredStats.length).toFixed(2),
-      overall_avg_spend: (totalSpend / filteredStats.length).toFixed(2)
+      overall_avg_spend: (totalSpend / filteredStats.length).toFixed(2),
+      best_all_time: calculateBestPerformer(filteredStats),
+      best_week: calculateBestPerformer(weekStats),
+      best_month: calculateBestPerformer(monthStats)
     };
   };
 
@@ -469,22 +499,30 @@ function HospitalityStats({ darkMode, setDarkMode }) {
       topRole: Object.entries(staff.roles).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A'
     })).sort((a, b) => b.totalShifts - a.totalShifts);
 
-    // Calculate averages
+    // Calculate averages and highest records
     const calculateAvg = (stats) => {
       const entries = Object.entries(stats);
-      if (entries.length === 0) return { avgMiv: 0, avgSpend: 0 };
+      if (entries.length === 0) return { avgMiv: 0, avgSpend: 0, highestMiv: 0, highestSpend: 0 };
       
       const totals = entries.reduce((acc, [key, val]) => ({
         miv: acc.miv + val.totalMiv,
         spend: acc.spend + val.totalSpend,
-        count: acc.count + val.count
-      }), { miv: 0, spend: 0, count: 0 });
+        count: acc.count + val.count,
+        maxMiv: Math.max(acc.maxMiv, val.totalMiv / val.count),
+        maxSpend: Math.max(acc.maxSpend, val.totalSpend / val.count)
+      }), { miv: 0, spend: 0, count: 0, maxMiv: 0, maxSpend: 0 });
 
       return {
         avgMiv: (totals.miv / totals.count).toFixed(2),
-        avgSpend: (totals.spend / totals.count).toFixed(2)
+        avgSpend: (totals.spend / totals.count).toFixed(2),
+        highestMiv: totals.maxMiv.toFixed(2),
+        highestSpend: totals.maxSpend.toFixed(2)
       };
     };
+
+    // Find highest single day records
+    const highestMivDay = dailyStats.reduce((max, day) => day.miv > max.miv ? day : max, { miv: 0, date: 'N/A', avgSpend: 0 });
+    const highestSpendDay = dailyStats.reduce((max, day) => day.avgSpend > max.avgSpend ? day : max, { miv: 0, date: 'N/A', avgSpend: 0 });
 
     return {
       staffStats: processedStaffStats,
@@ -493,7 +531,9 @@ function HospitalityStats({ darkMode, setDarkMode }) {
       monthlyAvg: calculateAvg(monthlyStats),
       yearlyAvg: calculateAvg(yearlyStats),
       totalReports: managerReports.length,
-      uniqueStaff: Object.keys(staffStats).length
+      uniqueStaff: Object.keys(staffStats).length,
+      highestMivDay,
+      highestSpendDay
     };
   };
 
@@ -557,6 +597,31 @@ function HospitalityStats({ darkMode, setDarkMode }) {
 
       <div className="container" style={{ gridTemplateColumns: '1fr', height: 'auto' }}>
         <main className="main-content">
+          {/* Desktop Tabs */}
+          <div className="tabs" style={{marginBottom: '20px'}}>
+            <button 
+              className={activeTab === 'manual' ? 'active' : ''}
+              onClick={() => setActiveTab('manual')}
+            >
+              <FileText size={18} />
+              Manual Entry
+            </button>
+            <button 
+              className={activeTab === 'parser' ? 'active' : ''}
+              onClick={() => setActiveTab('parser')}
+            >
+              <MessageSquare size={18} />
+              Parse Report
+            </button>
+            <button 
+              className={activeTab === 'analytics' ? 'active' : ''}
+              onClick={() => setActiveTab('analytics')}
+            >
+              <BarChart3 size={18} />
+              Analytics
+            </button>
+          </div>
+
           <div className="content-area hospitality-content">
             {/* Message Parser Section */}
             {activeTab === 'parser' && (
@@ -754,6 +819,28 @@ function HospitalityStats({ darkMode, setDarkMode }) {
                   </div>
                 </div>
 
+                {/* Best Performers */}
+                <div style={{marginBottom: '24px', padding: '16px', background: darkMode ? '#2b2d31' : '#f5f5f5', borderRadius: '8px'}}>
+                  <h3 style={{marginTop: 0}}>🏆 Best Performers (Highest Avg Spend)</h3>
+                  <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px'}}>
+                    <div>
+                      <strong>All Time:</strong>
+                      <div>{getFilteredAnalytics()?.best_all_time?.staff || 'N/A'}</div>
+                      <div style={{color: '#5865f2', fontWeight: 'bold'}}>${getFilteredAnalytics()?.best_all_time?.avg || '0.00'}</div>
+                    </div>
+                    <div>
+                      <strong>Past Month:</strong>
+                      <div>{getFilteredAnalytics()?.best_month?.staff || 'N/A'}</div>
+                      <div style={{color: '#5865f2', fontWeight: 'bold'}}>${getFilteredAnalytics()?.best_month?.avg || '0.00'}</div>
+                    </div>
+                    <div>
+                      <strong>Past Week:</strong>
+                      <div>{getFilteredAnalytics()?.best_week?.staff || 'N/A'}</div>
+                      <div style={{color: '#5865f2', fontWeight: 'bold'}}>${getFilteredAnalytics()?.best_week?.avg || '0.00'}</div>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="analytics-tables">
                   <div className="analytics-table">
                     <h3><Users size={20} /> Staff Performance</h3>
@@ -908,19 +995,69 @@ function HospitalityStats({ darkMode, setDarkMode }) {
                     </div>
                   </div>
 
-                  {/* Period Averages */}
+                  {/* Period Averages & Highest Records */}
                   <div style={{marginBottom: '24px', padding: '16px', background: darkMode ? '#2b2d31' : '#f5f5f5', borderRadius: '8px'}}>
-                    <h3 style={{marginTop: 0}}>Period Averages</h3>
-                    <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px'}}>
+                    <h3 style={{marginTop: 0}}>Period Averages & Records</h3>
+                    <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px'}}>
                       <div>
-                        <strong>Monthly:</strong>
-                        <div>MIV: {managerAnalytics.monthlyAvg.avgMiv}</div>
-                        <div>Spend: ${managerAnalytics.monthlyAvg.avgSpend}</div>
+                        <strong>📅 Weekly:</strong>
+                        <div>Avg MIV: {managerAnalytics.weeklyAvg.avgMiv}</div>
+                        <div>Avg Spend: ${managerAnalytics.weeklyAvg.avgSpend}</div>
+                        <div style={{color: '#5865f2', fontWeight: 'bold', marginTop: '8px'}}>
+                          🏆 Highest MIV: {managerAnalytics.weeklyAvg.highestMiv}
+                        </div>
+                        <div style={{color: '#5865f2', fontWeight: 'bold'}}>
+                          🏆 Highest Spend: ${managerAnalytics.weeklyAvg.highestSpend}
+                        </div>
                       </div>
                       <div>
-                        <strong>Yearly:</strong>
-                        <div>MIV: {managerAnalytics.yearlyAvg.avgMiv}</div>
-                        <div>Spend: ${managerAnalytics.yearlyAvg.avgSpend}</div>
+                        <strong>📅 Monthly:</strong>
+                        <div>Avg MIV: {managerAnalytics.monthlyAvg.avgMiv}</div>
+                        <div>Avg Spend: ${managerAnalytics.monthlyAvg.avgSpend}</div>
+                        <div style={{color: '#5865f2', fontWeight: 'bold', marginTop: '8px'}}>
+                          🏆 Highest MIV: {managerAnalytics.monthlyAvg.highestMiv}
+                        </div>
+                        <div style={{color: '#5865f2', fontWeight: 'bold'}}>
+                          🏆 Highest Spend: ${managerAnalytics.monthlyAvg.highestSpend}
+                        </div>
+                      </div>
+                      <div>
+                        <strong>📅 Yearly:</strong>
+                        <div>Avg MIV: {managerAnalytics.yearlyAvg.avgMiv}</div>
+                        <div>Avg Spend: ${managerAnalytics.yearlyAvg.avgSpend}</div>
+                        <div style={{color: '#5865f2', fontWeight: 'bold', marginTop: '8px'}}>
+                          🏆 Highest MIV: {managerAnalytics.yearlyAvg.highestMiv}
+                        </div>
+                        <div style={{color: '#5865f2', fontWeight: 'bold'}}>
+                          🏆 Highest Spend: ${managerAnalytics.yearlyAvg.highestSpend}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Single Day Records */}
+                  <div style={{marginBottom: '24px', padding: '16px', background: darkMode ? '#2b2d31' : '#f5f5f5', borderRadius: '8px'}}>
+                    <h3 style={{marginTop: 0}}>🎯 Single Day Records</h3>
+                    <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px'}}>
+                      <div>
+                        <strong>Highest MIV Day:</strong>
+                        <div>{new Date(managerAnalytics.highestMivDay.date).toLocaleDateString()}</div>
+                        <div style={{color: '#5865f2', fontWeight: 'bold', fontSize: '20px'}}>
+                          {managerAnalytics.highestMivDay.miv} MIV
+                        </div>
+                        <div style={{fontSize: '14px', color: '#666'}}>
+                          Avg Spend: ${managerAnalytics.highestMivDay.avgSpend}
+                        </div>
+                      </div>
+                      <div>
+                        <strong>Highest Spend Day:</strong>
+                        <div>{new Date(managerAnalytics.highestSpendDay.date).toLocaleDateString()}</div>
+                        <div style={{color: '#5865f2', fontWeight: 'bold', fontSize: '20px'}}>
+                          ${managerAnalytics.highestSpendDay.avgSpend}
+                        </div>
+                        <div style={{fontSize: '14px', color: '#666'}}>
+                          MIV: {managerAnalytics.highestSpendDay.miv}
+                        </div>
                       </div>
                     </div>
                   </div>
