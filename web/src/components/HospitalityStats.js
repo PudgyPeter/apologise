@@ -78,6 +78,7 @@ function HospitalityStats({ darkMode, setDarkMode }) {
     try {
       const response = await axios.get('/api/hospitality/analytics');
       setHospitalityAnalytics(response.data);
+      console.log('Hospitality analytics loaded:', response.data);
     } catch (error) {
       console.error('Error fetching hospitality analytics:', error);
     }
