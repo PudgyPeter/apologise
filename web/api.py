@@ -249,6 +249,7 @@ def health():
 
 # --- HOSPITALITY STATS ENDPOINTS ---
 HOSPITALITY_STATS_FILE = BASE_LOG_DIR / "hospitality_stats.json"
+MANAGER_REPORTS_FILE = BASE_LOG_DIR / "manager_reports.json"
 
 def load_hospitality_stats():
     """Load hospitality statistics from file"""
@@ -483,6 +484,81 @@ def get_hospitality_analytics():
         print(f"[💥 API] Error calculating analytics: {e}")
         import traceback
         traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+# --- MANAGER REPORTS ENDPOINTS ---
+
+def load_manager_reports():
+    """Load manager reports from file"""
+    if not MANAGER_REPORTS_FILE.exists():
+        return []
+    try:
+        return json.loads(MANAGER_REPORTS_FILE.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return []
+
+def save_manager_reports(reports):
+    """Save manager reports to file"""
+    MANAGER_REPORTS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with open(MANAGER_REPORTS_FILE, "w", encoding="utf-8") as f:
+        json.dump(reports, f, indent=2, ensure_ascii=False)
+    print(f"[📊 MANAGER] Saved {len(reports)} reports to {MANAGER_REPORTS_FILE}")
+
+@app.route('/api/manager/reports', methods=['GET'])
+def get_manager_reports():
+    """Get all manager reports"""
+    try:
+        reports = load_manager_reports()
+        return jsonify(reports)
+    except Exception as e:
+        print(f"[💥 API] Error loading manager reports: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/manager/reports', methods=['POST'])
+def add_manager_report():
+    """Add a new manager report"""
+    try:
+        data = request.get_json()
+        
+        # Add timestamp if not present
+        if 'date' not in data:
+            data['date'] = datetime.utcnow().isoformat()
+        
+        # Load existing reports
+        reports = load_manager_reports()
+        
+        # Add new report
+        reports.append(data)
+        
+        # Save back to file
+        save_manager_reports(reports)
+        
+        print(f"[📊 MANAGER] Added report: {data.get('date')} - Managers: {data.get('managers', [])}")
+        
+        return jsonify({"status": "ok", "report": data}), 201
+    except Exception as e:
+        print(f"[💥 API] Error adding manager report: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/manager/reports/<report_id>', methods=['DELETE'])
+def delete_manager_report(report_id):
+    """Delete a manager report"""
+    try:
+        reports = load_manager_reports()
+        
+        try:
+            index = int(report_id)
+            if 0 <= index < len(reports):
+                removed = reports.pop(index)
+                save_manager_reports(reports)
+                print(f"[📊 MANAGER] Deleted report {index}")
+                return jsonify({"status": "ok", "removed": removed})
+            else:
+                return jsonify({"error": "Report not found"}), 404
+        except ValueError:
+            return jsonify({"error": "Invalid report ID"}), 400
+    except Exception as e:
+        print(f"[💥 API] Error deleting manager report: {e}")
         return jsonify({"error": str(e)}), 500
 
 # Explicit route for hospitality (React Router will handle it)

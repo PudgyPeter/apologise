@@ -38,16 +38,7 @@ function HospitalityStats({ darkMode, setDarkMode }) {
   useEffect(() => {
     fetchHospitalityStats();
     fetchHospitalityAnalytics();
-    
-    // Load saved manager reports from localStorage
-    const savedReports = localStorage.getItem('managerReports');
-    if (savedReports) {
-      try {
-        setManagerReports(JSON.parse(savedReports));
-      } catch (error) {
-        console.error('Error loading manager reports:', error);
-      }
-    }
+    fetchManagerReports();
     
     // Update manifest for PWA to use hospitality-specific settings
     const manifestLink = document.querySelector('link[rel="manifest"]');
@@ -88,6 +79,16 @@ function HospitalityStats({ darkMode, setDarkMode }) {
       setHospitalityAnalytics(response.data);
     } catch (error) {
       console.error('Error fetching hospitality analytics:', error);
+    }
+  };
+
+  const fetchManagerReports = async () => {
+    try {
+      const response = await axios.get('/api/manager/reports');
+      setManagerReports(response.data);
+      console.log('Manager reports loaded:', response.data.length, 'entries');
+    } catch (error) {
+      console.error('Error fetching manager reports:', error);
     }
   };
 
@@ -182,29 +183,36 @@ function HospitalityStats({ darkMode, setDarkMode }) {
     }
   };
 
-  const handleParseMessage = () => {
+  const handleParseMessage = async () => {
     const parsed = parseManagerMessage(messageInput);
     if (parsed) {
       setParsedData(parsed);
-      // Save to manager reports with timestamp
-      const reportWithDate = {
-        ...parsed,
-        date: new Date().toISOString(),
-        rawMessage: messageInput
-      };
-      const updatedReports = [...managerReports, reportWithDate];
-      setManagerReports(updatedReports);
-      // Save to localStorage
-      localStorage.setItem('managerReports', JSON.stringify(updatedReports));
       
-      // Auto-fill the form with parsed data
-      setNewStat({
-        date: '',
-        miv: parsed.actualMiv || '',
-        average_spend: parsed.averageSpend || '',
-        staff_member: parsed.managers.join(', ') || '',
-        meal_period: 'dinner' // Manager reports are typically for dinner
-      });
+      try {
+        // Save to backend API
+        const reportWithDate = {
+          ...parsed,
+          date: new Date().toISOString(),
+          rawMessage: messageInput
+        };
+        
+        await axios.post('/api/manager/reports', reportWithDate);
+        
+        // Refresh manager reports from server
+        await fetchManagerReports();
+        
+        // Auto-fill the form with parsed data
+        setNewStat({
+          date: '',
+          miv: parsed.actualMiv || '',
+          average_spend: parsed.averageSpend || '',
+          staff_member: parsed.managers.join(', ') || '',
+          meal_period: 'dinner' // Manager reports are typically for dinner
+        });
+      } catch (error) {
+        console.error('Error saving manager report:', error);
+        alert('Error saving manager report: ' + (error.response?.data?.error || error.message));
+      }
     } else {
       alert('Could not parse message. Please check the format.');
     }
