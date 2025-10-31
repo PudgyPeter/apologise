@@ -391,7 +391,7 @@ function HospitalityStats({ darkMode, setDarkMode }) {
       const yearKey = `${reportDate.getFullYear()}`;
 
       // Staff statistics
-      report.allStaff.forEach(staffName => {
+      Array.from(report.allStaff).forEach(staffName => {
         if (!staffStats[staffName]) {
           staffStats[staffName] = {
             name: staffName,
@@ -438,7 +438,7 @@ function HospitalityStats({ darkMode, setDarkMode }) {
       weeklyStats[weekKey].totalMiv += report.actualMiv || 0;
       weeklyStats[weekKey].totalSpend += report.averageSpend || 0;
       weeklyStats[weekKey].count++;
-      report.allStaff.forEach(s => weeklyStats[weekKey].staffSet.add(s));
+      Array.from(report.allStaff).forEach(s => weeklyStats[weekKey].staffSet.add(s));
 
       // Monthly aggregation
       if (!monthlyStats[monthKey]) {
@@ -447,7 +447,7 @@ function HospitalityStats({ darkMode, setDarkMode }) {
       monthlyStats[monthKey].totalMiv += report.actualMiv || 0;
       monthlyStats[monthKey].totalSpend += report.averageSpend || 0;
       monthlyStats[monthKey].count++;
-      report.allStaff.forEach(s => monthlyStats[monthKey].staffSet.add(s));
+      Array.from(report.allStaff).forEach(s => monthlyStats[monthKey].staffSet.add(s));
 
       // Yearly aggregation
       if (!yearlyStats[yearKey]) {
@@ -456,7 +456,7 @@ function HospitalityStats({ darkMode, setDarkMode }) {
       yearlyStats[yearKey].totalMiv += report.actualMiv || 0;
       yearlyStats[yearKey].totalSpend += report.averageSpend || 0;
       yearlyStats[yearKey].count++;
-      report.allStaff.forEach(s => yearlyStats[yearKey].staffSet.add(s));
+      Array.from(report.allStaff).forEach(s => yearlyStats[yearKey].staffSet.add(s));
     });
 
     // Process staff stats
