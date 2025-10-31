@@ -68,6 +68,7 @@ function HospitalityStats({ darkMode, setDarkMode }) {
       const response = await axios.get('/api/hospitality/stats');
       setHospitalityStats(response.data);
       console.log('Hospitality stats loaded:', response.data.length, 'entries');
+      console.log('Sample entry:', response.data[0]);
     } catch (error) {
       console.error('Error fetching hospitality stats:', error);
     }
@@ -87,8 +88,10 @@ function HospitalityStats({ darkMode, setDarkMode }) {
       const response = await axios.get('/api/manager/reports');
       setManagerReports(response.data);
       console.log('Manager reports loaded:', response.data.length, 'entries');
+      console.log('Sample report:', response.data[0]);
     } catch (error) {
       console.error('Error fetching manager reports:', error);
+      console.error('Error details:', error.response?.data || error.message);
     }
   };
 
@@ -393,7 +396,7 @@ function HospitalityStats({ darkMode, setDarkMode }) {
     const weekStats = filteredStats.filter(s => s.date && new Date(s.date) >= oneWeekAgo);
     const monthStats = filteredStats.filter(s => s.date && new Date(s.date) >= oneMonthAgo);
 
-    return {
+    const result = {
       total_entries: filteredStats.length,
       staff_performance: staffPerformance,
       day_of_week_avg: dayOfWeekAvg,
@@ -403,6 +406,11 @@ function HospitalityStats({ darkMode, setDarkMode }) {
       best_week: calculateBestPerformer(weekStats),
       best_month: calculateBestPerformer(monthStats)
     };
+    
+    console.log('Calculated analytics:', result);
+    console.log('Best performers:', result.best_all_time, result.best_week, result.best_month);
+    
+    return result;
   };
 
   const handleMobileNav = (tab) => {
