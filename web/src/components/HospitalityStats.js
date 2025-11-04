@@ -379,22 +379,22 @@ function HospitalityStats({ darkMode, setDarkMode }) {
     const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
     const calculateBestPerformer = (stats) => {
-      const staffData = {};
-      stats.forEach(entry => {
-        const staff = entry.staff_member;
-        const avgSpend = parseFloat(entry.average_spend);
-        if (!staffData[staff]) {
-          staffData[staff] = { total_spend: 0, count: 0 };
-        }
-        staffData[staff].total_spend += avgSpend;
-        staffData[staff].count += 1;
-      });
+      // Find the single entry with the highest average spend
+      if (stats.length === 0) {
+        return { staff: 'N/A', avg: '0.00', date: null };
+      }
       
-      const best = Object.entries(staffData)
-        .map(([staff, data]) => ({ staff, avg: (data.total_spend / data.count).toFixed(2) }))
-        .sort((a, b) => parseFloat(b.avg) - parseFloat(a.avg))[0];
+      const best = stats.reduce((max, entry) => {
+        const avgSpend = parseFloat(entry.average_spend || 0);
+        const maxSpend = parseFloat(max.avg || 0);
+        return avgSpend > maxSpend ? {
+          staff: entry.staff_member,
+          avg: avgSpend.toFixed(2),
+          date: entry.date
+        } : max;
+      }, { staff: 'N/A', avg: '0.00', date: null });
       
-      return best || { staff: 'N/A', avg: '0.00' };
+      return best;
     };
 
     const weekStats = filteredStats.filter(s => s.date && new Date(s.date) >= oneWeekAgo);
@@ -845,22 +845,37 @@ function HospitalityStats({ darkMode, setDarkMode }) {
 
                 {/* Best Performers */}
                 <div style={{marginBottom: '24px', padding: '16px', background: darkMode ? '#2b2d31' : '#f5f5f5', borderRadius: '8px'}}>
-                  <h3 style={{marginTop: 0}}>🏆 Best Performers (Highest Avg Spend)</h3>
+                  <h3 style={{marginTop: 0}}>🏆 Best Single Performance (Highest Avg Spend)</h3>
                   <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px'}}>
                     <div>
                       <strong>All Time:</strong>
                       <div>{getFilteredAnalytics()?.best_all_time?.staff || 'N/A'}</div>
                       <div style={{color: '#5865f2', fontWeight: 'bold'}}>${getFilteredAnalytics()?.best_all_time?.avg || '0.00'}</div>
+                      {getFilteredAnalytics()?.best_all_time?.date && (
+                        <div style={{fontSize: '12px', color: '#888', marginTop: '4px'}}>
+                          {formatDate(getFilteredAnalytics().best_all_time.date)}
+                        </div>
+                      )}
                     </div>
                     <div>
                       <strong>Past Month:</strong>
                       <div>{getFilteredAnalytics()?.best_month?.staff || 'N/A'}</div>
                       <div style={{color: '#5865f2', fontWeight: 'bold'}}>${getFilteredAnalytics()?.best_month?.avg || '0.00'}</div>
+                      {getFilteredAnalytics()?.best_month?.date && (
+                        <div style={{fontSize: '12px', color: '#888', marginTop: '4px'}}>
+                          {formatDate(getFilteredAnalytics().best_month.date)}
+                        </div>
+                      )}
                     </div>
                     <div>
                       <strong>Past Week:</strong>
                       <div>{getFilteredAnalytics()?.best_week?.staff || 'N/A'}</div>
                       <div style={{color: '#5865f2', fontWeight: 'bold'}}>${getFilteredAnalytics()?.best_week?.avg || '0.00'}</div>
+                      {getFilteredAnalytics()?.best_week?.date && (
+                        <div style={{fontSize: '12px', color: '#888', marginTop: '4px'}}>
+                          {formatDate(getFilteredAnalytics().best_week.date)}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
