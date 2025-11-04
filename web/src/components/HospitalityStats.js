@@ -778,7 +778,7 @@ function HospitalityStats({ darkMode, setDarkMode }) {
               </form>
 
               {/* Manual Entry Analytics - shown below the form */}
-              {hospitalityAnalytics && (
+              {(hospitalityAnalytics || hospitalityStats.length > 0) && (
               <div className="analytics-section">
                 <div className="analytics-header">
                   <h2>Analytics</h2>
