@@ -778,7 +778,11 @@ function HospitalityStats({ darkMode, setDarkMode }) {
               </form>
 
               {/* Manual Entry Analytics - shown below the form */}
-              {(hospitalityAnalytics || hospitalityStats.length > 0) && (
+              {(hospitalityAnalytics || hospitalityStats.length > 0) && (() => {
+                const analytics = getFilteredAnalytics();
+                console.log('Rendering analytics section, data:', analytics);
+                console.log('Best performers from analytics:', analytics?.best_all_time, analytics?.best_week, analytics?.best_month);
+                return (
               <div className="analytics-section">
                 <div className="analytics-header">
                   <h2>Analytics</h2>
@@ -957,7 +961,8 @@ function HospitalityStats({ darkMode, setDarkMode }) {
                   </div>
                 </div>
               </div>
-              )}
+                );
+              })()}
             </div>
             )}
 
