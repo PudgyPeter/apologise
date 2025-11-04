@@ -308,11 +308,14 @@ function HospitalityStats({ darkMode, setDarkMode }) {
   };
 
   const getFilteredAnalytics = () => {
-    if (!hospitalityAnalytics || mealPeriodFilter === 'all') {
-      return hospitalityAnalytics;
+    if (!hospitalityAnalytics) {
+      return null;
     }
 
-    const filteredStats = hospitalityStats.filter(stat => stat.meal_period === mealPeriodFilter);
+    // Use all stats for 'all' filter, otherwise filter by meal period
+    const filteredStats = mealPeriodFilter === 'all' 
+      ? hospitalityStats 
+      : hospitalityStats.filter(stat => stat.meal_period === mealPeriodFilter);
     
     if (filteredStats.length === 0) {
       return null;
