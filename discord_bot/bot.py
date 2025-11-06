@@ -157,8 +157,9 @@ def fuzzy_contains(text, keyword, tolerance=FUZZY_TOLERANCE):
         if keyword == word:
             return True
         # Fuzzy match only if word length is close to keyword length
+        # AND the first character matches (prevents "dude" matching "pudge")
         if abs(len(word) - len(keyword)) <= tolerance:
-            if levenshtein(word, keyword) <= tolerance:
+            if word[0] == keyword[0] and levenshtein(word, keyword) <= tolerance:
                 return True
     
     return False
