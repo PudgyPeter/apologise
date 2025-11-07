@@ -184,6 +184,16 @@ const DreamJournal = ({ darkMode, setDarkMode }) => {
     return highlightedText;
   };
 
+  // Set body background color to match gradient
+  React.useEffect(() => {
+    document.body.style.background = darkMode 
+      ? '#1a202c' 
+      : '#667eea';
+    return () => {
+      document.body.style.background = '';
+    };
+  }, [darkMode]);
+
   return (
     <div className={`app-container ${darkMode ? 'dark-mode' : ''}`}>
       {/* Header */}

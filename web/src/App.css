@@ -1928,19 +1928,22 @@
 /* App Container - Beautiful Background with iOS Safe Areas */
 .app-container {
   min-height: 100vh;
-  min-height: -webkit-fill-available;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
-  background-attachment: fixed;
-  background-size: cover;
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background-attachment: scroll;
   width: 100%;
   overflow-x: hidden;
-  display: flex;
-  flex-direction: column;
+  padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
+  position: relative;
 }
 
 .app-container.dark-mode {
   background: linear-gradient(135deg, #1a202c 0%, #2d3748 50%, #4a5568 100%);
+}
+
+/* Dark mode body background */
+.dark-mode ~ body,
+body:has(.dark-mode) {
+  background: #1a202c;
 }
 
 /* Ensure body and html fill viewport - iOS fix */
@@ -1948,13 +1951,13 @@ body, html {
   margin: 0;
   padding: 0;
   width: 100%;
-  height: 100%;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
+  background: #667eea;
 }
 
-html {
-  height: -webkit-fill-available;
+body {
+  min-height: 100vh;
 }
 
 /* App Header - Modern Design with iOS Safe Areas */
@@ -1967,7 +1970,6 @@ html {
   top: 0;
   z-index: 100;
   padding-top: env(safe-area-inset-top, 0px);
-  flex-shrink: 0;
 }
 
 .app-container.dark-mode .app-header {
@@ -2046,11 +2048,6 @@ html {
 
 .app-container.dark-mode .theme-toggle {
   background: linear-gradient(135deg, #4c51bf 0%, #6b46c1 100%);
-}
-
-/* Content Wrapper - Fills remaining space */
-.app-container > *:not(.app-header) {
-  flex: 1 0 auto;
 }
 
 /* Stats Container - Modern Card Grid with Safe Areas */
