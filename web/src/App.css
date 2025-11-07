@@ -1932,8 +1932,12 @@
   background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
   background-attachment: scroll;
   width: 100%;
-  overflow-y: auto;
+  height: 100vh;
+  height: 100dvh;
+  overflow-y: scroll;
   overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
   padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
   position: relative;
 }
@@ -1956,10 +1960,12 @@ body, html {
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   background: #667eea;
+  touch-action: pan-y pinch-zoom;
 }
 
 body {
   min-height: 100vh;
+  overscroll-behavior: none;
 }
 
 /* App Header - Modern Design with iOS Safe Areas */
@@ -2578,12 +2584,16 @@ body {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
   word-wrap: break-word;
   overflow-wrap: break-word;
+  touch-action: manipulation;
 }
 
-.dream-card:hover {
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-  transform: translateY(-4px);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+/* Only apply hover effects on devices with hover capability (not touch) */
+@media (hover: hover) and (pointer: fine) {
+  .dream-card:hover {
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+  }
 }
 
 .dream-card.selected {
@@ -2930,6 +2940,28 @@ body {
 
   .dream-form-card {
     padding: 20px;
+  }
+}
+
+/* Disable all hover effects on touch devices for Dream Journal */
+@media (hover: none) and (pointer: coarse) {
+  .app-container * {
+    transition: none !important;
+  }
+  
+  .dream-card:hover,
+  .stat-card:hover,
+  .sidebar-section:hover,
+  .keyword-item:hover,
+  .month-item:hover,
+  .tag:hover,
+  .theme-toggle:hover,
+  .mobile-menu-toggle:hover,
+  .dream-actions button:hover,
+  button:hover {
+    transform: none !important;
+    box-shadow: inherit !important;
+    background: inherit !important;
   }
 }
 
