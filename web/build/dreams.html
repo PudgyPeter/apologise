@@ -10,6 +10,7 @@
     <link rel="manifest" href="/dreams-manifest.json" />
     
     <!-- iOS Specific Meta Tags -->
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Dream Journal" />
@@ -24,6 +25,9 @@
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
+    
+    <!-- Load React App -->
+    <script src="/static/js/main.js"></script>
     
     <script>
       // Register service worker for PWA functionality

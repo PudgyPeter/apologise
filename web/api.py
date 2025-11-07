@@ -800,20 +800,28 @@ def serve_hospitality():
         print(f"[🌐 ROUTE] Error: {e}")
         return jsonify({"error": str(e)}), 500
 
-# Explicit route for dreams (React Router will handle it)
+# Service Worker route (must be at root for proper scope)
+@app.route('/service-worker.js')
+def serve_service_worker():
+    """Serve service worker with correct MIME type and no caching"""
+    print(f"[🌐 ROUTE] Service worker requested")
+    try:
+        response = send_from_directory(app.static_folder, 'service-worker.js')
+        response.headers['Content-Type'] = 'application/javascript'
+        response.headers['Service-Worker-Allowed'] = '/'
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        return response
+    except Exception as e:
+        print(f"[🌐 ROUTE] Service worker error: {e}")
+        return jsonify({"error": "Service worker not found"}), 404
+
+# Explicit route for dreams (let React Router handle it)
 @app.route('/dreams')
 def serve_dreams():
-    """Serve dreams-specific HTML with correct manifest for PWA"""
-    print(f"[🌐 ROUTE] Dreams route hit!")
+    """Serve main index.html - React Router will handle the /dreams route"""
+    print(f"[🌐 ROUTE] Dreams route hit - serving index.html for React Router")
     try:
-        # Try to serve dreams.html first (for PWA)
-        dreams_html = os.path.join(app.static_folder, 'dreams.html')
-        if os.path.exists(dreams_html):
-            print(f"[🌐 ROUTE] Serving dreams.html")
-            return send_from_directory(app.static_folder, 'dreams.html')
-        else:
-            print(f"[🌐 ROUTE] dreams.html not found, serving index.html")
-            return send_from_directory(app.static_folder, 'index.html')
+        return send_from_directory(app.static_folder, 'index.html')
     except Exception as e:
         print(f"[🌐 ROUTE] Error: {e}")
         return jsonify({"error": str(e)}), 500
