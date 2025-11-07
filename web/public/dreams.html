@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#667eea" />
+    <meta name="description" content="Personal dream logging with keyword analysis and statistics" />
+    
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="/dreams-manifest.json" />
+    
+    <!-- iOS Specific Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Dream Journal" />
+    
+    <!-- App Icons -->
+    <link rel="apple-touch-icon" href="/dream-icon-192.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/dream-icon-192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/dream-icon-512.png" />
+    
+    <title>Dream Journal</title>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+    
+    <script>
+      // Register service worker for PWA functionality
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', async () => {
+          try {
+            // Register service worker
+            const registration = await navigator.serviceWorker.register('/service-worker.js', {
+              updateViaCache: 'none'
+            });
+            
+            // Force immediate update check
+            registration.update();
+            
+            console.log('ServiceWorker registered for Dream Journal:', registration);
+            
+            // Listen for updates
+            registration.addEventListener('updatefound', () => {
+              const newWorker = registration.installing;
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'activated') {
+                  console.log('New service worker activated');
+                }
+              });
+            });
+          } catch (err) {
+            console.log('ServiceWorker registration failed:', err);
+          }
+        });
+        
+        // Listen for messages from service worker
+        navigator.serviceWorker.addEventListener('message', (event) => {
+          if (event.data.type === 'CACHE_UPDATED') {
+            console.log('Cache updated to version:', event.data.version);
+          }
+        });
+      }
+      
+      // Request persistent storage for dream data
+      if (navigator.storage && navigator.storage.persist) {
+        navigator.storage.persist().then((persistent) => {
+          if (persistent) {
+            console.log('Storage will not be cleared except by explicit user action');
+          }
+        });
+      }
+    </script>
+  </body>
+</html>

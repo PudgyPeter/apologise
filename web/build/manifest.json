@@ -1,7 +1,7 @@
 {
   "name": "Discord Log Dashboard",
   "short_name": "Logs & Stats",
-  "description": "Discord message logs and hospitality statistics tracker",
+  "description": "Discord message logs, hospitality statistics, and dream journal",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
@@ -22,5 +22,31 @@
     }
   ],
   "categories": ["productivity", "utilities"],
-  "screenshots": []
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Dream Journal",
+      "short_name": "Dreams",
+      "description": "Log and analyze your dreams",
+      "url": "/dreams",
+      "icons": [
+        {
+          "src": "/dream-icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Hospitality Stats",
+      "short_name": "Stats",
+      "description": "Track hospitality statistics",
+      "url": "/hospitality",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
 }

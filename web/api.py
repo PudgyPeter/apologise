@@ -36,8 +36,10 @@ else:
     print(f"[✅ PATH] Using local dir: {LOCAL_DIR}")
 
 LIVE_MESSAGES_FILE = BASE_LOG_DIR / "live_messages.json"
+DREAMS_FILE = BASE_LOG_DIR / "dreams.json"
 print(f"[✅ PATH] Final BASE_LOG_DIR: {BASE_LOG_DIR}")
 print(f"[✅ PATH] Final LIVE_MESSAGES_FILE: {LIVE_MESSAGES_FILE}")
+print(f"[✅ PATH] Final DREAMS_FILE: {DREAMS_FILE}")
 
 # Timezone configuration
 LOCAL_TIMEZONE_OFFSET = 11  # UTC+11 for Australian Eastern Daylight Time
@@ -561,6 +563,225 @@ def delete_manager_report(report_id):
         print(f"[💥 API] Error deleting manager report: {e}")
         return jsonify({"error": str(e)}), 500
 
+# --- DREAM LOGGING FUNCTIONS ---
+def load_dreams():
+    """Load dreams from JSON file"""
+    try:
+        if DREAMS_FILE.exists():
+            with open(DREAMS_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        return []
+    except Exception as e:
+        print(f"[💥 DREAMS] Error loading dreams: {e}")
+        return []
+
+def save_dreams(dreams):
+    """Save dreams to JSON file"""
+    try:
+        with open(DREAMS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(dreams, f, indent=2, ensure_ascii=False)
+        return True
+    except Exception as e:
+        print(f"[💥 DREAMS] Error saving dreams: {e}")
+        return False
+
+def extract_keywords(text, min_word_length=3):
+    """Extract keywords from text, excluding common filler words"""
+    # Common filler words to exclude
+    stop_words = {
+        'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
+        'of', 'with', 'by', 'from', 'up', 'about', 'into', 'through', 'during',
+        'before', 'after', 'above', 'below', 'between', 'under', 'again', 'further',
+        'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how', 'all', 'both',
+        'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not',
+        'only', 'own', 'same', 'so', 'than', 'too', 'very', 'can', 'will', 'just',
+        'should', 'now', 'was', 'were', 'been', 'being', 'have', 'has', 'had',
+        'do', 'does', 'did', 'doing', 'would', 'could', 'ought', 'i', 'you', 'he',
+        'she', 'it', 'we', 'they', 'them', 'their', 'what', 'which', 'who', 'whom',
+        'this', 'that', 'these', 'those', 'am', 'is', 'are', 'be', 'as', 'if', 'my',
+        'your', 'his', 'her', 'its', 'our', 'me', 'him', 'us', 'myself', 'yourself',
+        'himself', 'herself', 'itself', 'ourselves', 'themselves'
+    }
+    
+    # Clean and split text
+    import re
+    words = re.findall(r'\b[a-zA-Z]+\b', text.lower())
+    
+    # Filter out stop words and short words
+    keywords = [w for w in words if w not in stop_words and len(w) >= min_word_length]
+    
+    # Count frequencies
+    word_freq = {}
+    for word in keywords:
+        word_freq[word] = word_freq.get(word, 0) + 1
+    
+    return word_freq
+
+def calculate_dream_stats(dreams):
+    """Calculate statistics across all dreams"""
+    if not dreams:
+        return {
+            'total_dreams': 0,
+            'total_words': 0,
+            'avg_words_per_dream': 0,
+            'top_keywords': [],
+            'dreams_by_month': {}
+        }
+    
+    total_words = 0
+    all_keywords = {}
+    dreams_by_month = {}
+    
+    for dream in dreams:
+        # Count words
+        content = dream.get('content', '')
+        words = len(content.split())
+        total_words += words
+        
+        # Aggregate keywords
+        keywords = dream.get('keywords', {})
+        for word, count in keywords.items():
+            all_keywords[word] = all_keywords.get(word, 0) + count
+        
+        # Group by month
+        date_str = dream.get('date', '')
+        if date_str:
+            month_key = date_str[:7]  # YYYY-MM
+            dreams_by_month[month_key] = dreams_by_month.get(month_key, 0) + 1
+    
+    # Sort keywords by frequency
+    top_keywords = sorted(all_keywords.items(), key=lambda x: x[1], reverse=True)[:50]
+    
+    return {
+        'total_dreams': len(dreams),
+        'total_words': total_words,
+        'avg_words_per_dream': round(total_words / len(dreams), 1) if dreams else 0,
+        'top_keywords': [{'word': word, 'count': count} for word, count in top_keywords],
+        'dreams_by_month': dreams_by_month
+    }
+
+# --- DREAM API ENDPOINTS ---
+@app.route('/api/dreams', methods=['GET'])
+def get_dreams():
+    """Get all dreams with optional filtering"""
+    try:
+        dreams = load_dreams()
+        
+        # Optional search filter
+        search = request.args.get('search', '').lower()
+        if search:
+            dreams = [d for d in dreams if search in d.get('content', '').lower() or 
+                     search in d.get('title', '').lower()]
+        
+        # Optional date range filter
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        if start_date:
+            dreams = [d for d in dreams if d.get('date', '') >= start_date]
+        if end_date:
+            dreams = [d for d in dreams if d.get('date', '') <= end_date]
+        
+        return jsonify(dreams)
+    except Exception as e:
+        print(f"[💥 API] Error getting dreams: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/dreams', methods=['POST'])
+def create_dream():
+    """Create a new dream entry"""
+    try:
+        data = request.json
+        dreams = load_dreams()
+        
+        # Extract keywords from content
+        content = data.get('content', '')
+        keywords = extract_keywords(content)
+        
+        # Create new dream entry
+        new_dream = {
+            'id': len(dreams) + 1,
+            'title': data.get('title', ''),
+            'content': content,
+            'date': data.get('date', datetime.now().strftime('%Y-%m-%d')),
+            'tags': data.get('tags', []),
+            'keywords': keywords,
+            'created_at': datetime.now().isoformat()
+        }
+        
+        dreams.append(new_dream)
+        save_dreams(dreams)
+        
+        print(f"[✨ DREAMS] Created new dream: {new_dream['title']}")
+        return jsonify(new_dream), 201
+    except Exception as e:
+        print(f"[💥 API] Error creating dream: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/dreams/<int:dream_id>', methods=['PUT'])
+def update_dream(dream_id):
+    """Update an existing dream"""
+    try:
+        data = request.json
+        dreams = load_dreams()
+        
+        # Find dream by ID
+        dream_index = next((i for i, d in enumerate(dreams) if d.get('id') == dream_id), None)
+        if dream_index is None:
+            return jsonify({"error": "Dream not found"}), 404
+        
+        # Extract keywords from updated content
+        content = data.get('content', dreams[dream_index].get('content', ''))
+        keywords = extract_keywords(content)
+        
+        # Update dream
+        dreams[dream_index].update({
+            'title': data.get('title', dreams[dream_index].get('title', '')),
+            'content': content,
+            'date': data.get('date', dreams[dream_index].get('date', '')),
+            'tags': data.get('tags', dreams[dream_index].get('tags', [])),
+            'keywords': keywords,
+            'updated_at': datetime.now().isoformat()
+        })
+        
+        save_dreams(dreams)
+        
+        print(f"[✏️ DREAMS] Updated dream {dream_id}")
+        return jsonify(dreams[dream_index])
+    except Exception as e:
+        print(f"[💥 API] Error updating dream: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/dreams/<int:dream_id>', methods=['DELETE'])
+def delete_dream(dream_id):
+    """Delete a dream"""
+    try:
+        dreams = load_dreams()
+        
+        # Find and remove dream
+        dream_index = next((i for i, d in enumerate(dreams) if d.get('id') == dream_id), None)
+        if dream_index is None:
+            return jsonify({"error": "Dream not found"}), 404
+        
+        removed = dreams.pop(dream_index)
+        save_dreams(dreams)
+        
+        print(f"[🗑️ DREAMS] Deleted dream {dream_id}")
+        return jsonify({"status": "ok", "removed": removed})
+    except Exception as e:
+        print(f"[💥 API] Error deleting dream: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/dreams/stats', methods=['GET'])
+def get_dream_stats():
+    """Get statistics about all dreams"""
+    try:
+        dreams = load_dreams()
+        stats = calculate_dream_stats(dreams)
+        return jsonify(stats)
+    except Exception as e:
+        print(f"[💥 API] Error getting dream stats: {e}")
+        return jsonify({"error": str(e)}), 500
+
 # Explicit route for hospitality (React Router will handle it)
 @app.route('/hospitality')
 def serve_hospitality():
@@ -574,6 +795,24 @@ def serve_hospitality():
             return send_from_directory(app.static_folder, 'hospitality.html')
         else:
             print(f"[🌐 ROUTE] hospitality.html not found, serving index.html")
+            return send_from_directory(app.static_folder, 'index.html')
+    except Exception as e:
+        print(f"[🌐 ROUTE] Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+# Explicit route for dreams (React Router will handle it)
+@app.route('/dreams')
+def serve_dreams():
+    """Serve dreams-specific HTML with correct manifest for PWA"""
+    print(f"[🌐 ROUTE] Dreams route hit!")
+    try:
+        # Try to serve dreams.html first (for PWA)
+        dreams_html = os.path.join(app.static_folder, 'dreams.html')
+        if os.path.exists(dreams_html):
+            print(f"[🌐 ROUTE] Serving dreams.html")
+            return send_from_directory(app.static_folder, 'dreams.html')
+        else:
+            print(f"[🌐 ROUTE] dreams.html not found, serving index.html")
             return send_from_directory(app.static_folder, 'index.html')
     except Exception as e:
         print(f"[🌐 ROUTE] Error: {e}")

@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generate Dream Journal Icons</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #667eea;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        canvas {
+            display: block;
+            margin: 20px auto;
+            border-radius: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        button {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        .instructions {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 30px;
+            border-left: 4px solid #667eea;
+        }
+        .instructions h3 {
+            margin-top: 0;
+            color: #667eea;
+        }
+        .instructions ol {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .instructions li {
+            margin: 8px 0;
+            line-height: 1.6;
+        }
+        .preview-section {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .preview-label {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌙 Dream Journal Icons</h1>
+        <p class="subtitle">Generate PWA icons for your Dream Journal app</p>
+        
+        <div class="preview-section">
+            <div class="preview-label">192x192 Icon Preview</div>
+            <canvas id="canvas192" width="192" height="192"></canvas>
+            <button onclick="downloadIcon(192)">📥 Download 192x192 Icon</button>
+        </div>
+        
+        <div class="preview-section">
+            <div class="preview-label">512x512 Icon Preview</div>
+            <canvas id="canvas512" width="512" height="512"></canvas>
+            <button onclick="downloadIcon(512)">📥 Download 512x512 Icon</button>
+        </div>
+        
+        <div class="instructions">
+            <h3>📋 Installation Instructions</h3>
+            <ol>
+                <li>Click the download buttons above to save both icons</li>
+                <li>Rename them to:
+                    <ul>
+                        <li><code>dream-icon-192.png</code></li>
+                        <li><code>dream-icon-512.png</code></li>
+                    </ul>
+                </li>
+                <li>Move both files to the <code>web/public/</code> folder</li>
+                <li>Build and deploy your app</li>
+                <li>Visit <code>/dreams</code> on your phone and add to home screen!</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        function drawIcon(canvas) {
+            const ctx = canvas.getContext('2d');
+            const size = canvas.width;
+            
+            // Background gradient
+            const gradient = ctx.createLinearGradient(0, 0, size, size);
+            gradient.addColorStop(0, '#667eea');
+            gradient.addColorStop(1, '#764ba2');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, size, size);
+            
+            // Moon
+            const moonSize = size * 0.35;
+            const moonX = size * 0.5;
+            const moonY = size * 0.4;
+            
+            // Outer glow
+            const glowGradient = ctx.createRadialGradient(moonX, moonY, moonSize * 0.5, moonX, moonY, moonSize * 1.2);
+            glowGradient.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
+            glowGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+            ctx.fillStyle = glowGradient;
+            ctx.beginPath();
+            ctx.arc(moonX, moonY, moonSize * 1.2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Main moon
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(moonX, moonY, moonSize, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Moon craters
+            ctx.fillStyle = 'rgba(200, 200, 220, 0.3)';
+            ctx.beginPath();
+            ctx.arc(moonX - moonSize * 0.3, moonY - moonSize * 0.2, moonSize * 0.15, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(moonX + moonSize * 0.2, moonY + moonSize * 0.1, moonSize * 0.2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(moonX + moonSize * 0.1, moonY - moonSize * 0.4, moonSize * 0.1, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Stars
+            ctx.fillStyle = '#ffffff';
+            const stars = [
+                { x: 0.2, y: 0.2, size: 0.02 },
+                { x: 0.8, y: 0.25, size: 0.015 },
+                { x: 0.15, y: 0.7, size: 0.018 },
+                { x: 0.85, y: 0.65, size: 0.02 },
+                { x: 0.3, y: 0.85, size: 0.015 },
+                { x: 0.7, y: 0.8, size: 0.018 },
+                { x: 0.9, y: 0.4, size: 0.012 },
+                { x: 0.25, y: 0.5, size: 0.012 }
+            ];
+            
+            stars.forEach(star => {
+                const starSize = size * star.size;
+                const x = size * star.x;
+                const y = size * star.y;
+                
+                // Draw 4-pointed star
+                ctx.save();
+                ctx.translate(x, y);
+                ctx.beginPath();
+                for (let i = 0; i < 4; i++) {
+                    ctx.lineTo(0, -starSize);
+                    ctx.rotate(Math.PI / 4);
+                    ctx.lineTo(0, -starSize * 0.4);
+                    ctx.rotate(Math.PI / 4);
+                }
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+            });
+            
+            // Cloud/dream element
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+            const cloudY = size * 0.75;
+            ctx.beginPath();
+            ctx.arc(size * 0.3, cloudY, size * 0.08, 0, Math.PI * 2);
+            ctx.arc(size * 0.4, cloudY - size * 0.02, size * 0.1, 0, Math.PI * 2);
+            ctx.arc(size * 0.5, cloudY, size * 0.09, 0, Math.PI * 2);
+            ctx.arc(size * 0.6, cloudY - size * 0.01, size * 0.08, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        function downloadIcon(size) {
+            const canvas = document.getElementById(`canvas${size}`);
+            const link = document.createElement('a');
+            link.download = `dream-icon-${size}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+        
+        // Draw icons on page load
+        window.onload = () => {
+            drawIcon(document.getElementById('canvas192'));
+            drawIcon(document.getElementById('canvas512'));
+        };
+    </script>
+</body>
+</html>

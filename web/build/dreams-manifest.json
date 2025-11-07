@@ -1,0 +1,53 @@
+{
+  "name": "Dream Journal",
+  "short_name": "Dreams",
+  "description": "Personal dream logging with keyword analysis and statistics",
+  "start_url": "/dreams",
+  "scope": "/dreams",
+  "display": "standalone",
+  "background_color": "#1a202c",
+  "theme_color": "#667eea",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/dream-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/dream-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["lifestyle", "productivity", "health"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "New Dream",
+      "short_name": "New",
+      "description": "Log a new dream",
+      "url": "/dreams?action=new",
+      "icons": [
+        {
+          "src": "/dream-icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Statistics",
+      "short_name": "Stats",
+      "description": "View dream statistics",
+      "url": "/dreams?view=stats",
+      "icons": [
+        {
+          "src": "/dream-icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}

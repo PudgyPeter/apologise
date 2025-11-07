@@ -1,11 +1,15 @@
 // Service Worker for PWA functionality
-const CACHE_VERSION = 'v2.0.6';
+const CACHE_VERSION = 'v2.0.7';
 const CACHE_NAME = `discord-logs-${CACHE_VERSION}`;
 const urlsToCache = [
   '/',
+  '/dreams',
   '/static/css/main.css',
   '/static/js/main.js',
-  '/manifest.json'
+  '/manifest.json',
+  '/dreams-manifest.json',
+  '/dream-icon-192.png',
+  '/dream-icon-512.png'
 ];
 
 // Install event - cache resources and skip waiting
@@ -79,10 +83,38 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('sync', (event) => {
   if (event.tag === 'sync-hospitality-stats') {
     event.waitUntil(syncHospitalityStats());
+  } else if (event.tag === 'sync-dreams') {
+    event.waitUntil(syncDreams());
   }
 });
 
 async function syncHospitalityStats() {
   // This would sync any offline-submitted stats when connection is restored
   console.log('Syncing hospitality stats...');
+}
+
+async function syncDreams() {
+  // Sync any offline-created dreams when connection is restored
+  console.log('Syncing dreams...');
+  try {
+    const cache = await caches.open('dreams-offline-queue');
+    const requests = await cache.keys();
+    
+    for (const request of requests) {
+      const response = await cache.match(request);
+      const data = await response.json();
+      
+      // Try to submit the dream
+      await fetch('/api/dreams', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      
+      // Remove from queue on success
+      await cache.delete(request);
+    }
+  } catch (error) {
+    console.error('Error syncing dreams:', error);
+  }
 }
