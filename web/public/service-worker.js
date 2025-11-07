@@ -1,5 +1,5 @@
 // Service Worker for PWA functionality
-const CACHE_VERSION = 'v2.0.7';
+const CACHE_VERSION = 'v2.0.8';
 const CACHE_NAME = `discord-logs-${CACHE_VERSION}`;
 const urlsToCache = [
   '/',
@@ -7,9 +7,8 @@ const urlsToCache = [
   '/static/css/main.css',
   '/static/js/main.js',
   '/manifest.json',
-  '/dreams-manifest.json',
-  '/dream-icon-192.png',
-  '/dream-icon-512.png'
+  '/dreams-manifest.json'
+  // Icons will be cached on-demand when they exist
 ];
 
 // Install event - cache resources and skip waiting
