@@ -19,6 +19,8 @@ const DreamJournal = ({ darkMode, setDarkMode }) => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [syncStatus, setSyncStatus] = useState('synced'); // 'synced', 'syncing', 'offline'
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+  const [autoSaveTimer, setAutoSaveTimer] = useState(null);
+  const [draftId, setDraftId] = useState(null); // Track draft dream ID for auto-save
 
   // Monitor online/offline status
   useEffect(() => {
@@ -98,13 +100,74 @@ const DreamJournal = ({ darkMode, setDarkMode }) => {
     };
   }, []);
 
+  // Auto-save draft as user types
+  const autoSaveDraft = async () => {
+    // Only auto-save if there's content
+    if (!formData.content && !formData.title) {
+      return;
+    }
+
+    setSyncStatus('syncing');
+    try {
+      const dreamData = {
+        title: formData.title || 'Untitled Dream',
+        content: formData.content,
+        date: formData.date,
+        tags: formData.tags.split(',').map(t => t.trim()).filter(t => t)
+      };
+
+      if (draftId) {
+        // Update existing draft
+        await dreamAPI.update(draftId, dreamData);
+      } else if (editingDream) {
+        // Update existing dream being edited
+        await dreamAPI.update(editingDream.id, dreamData);
+      } else {
+        // Create new draft
+        const result = await dreamAPI.create(dreamData);
+        const newDraftId = result.data?.[0]?.id || result.data?.id;
+        setDraftId(newDraftId);
+      }
+
+      setSyncStatus('synced');
+    } catch (error) {
+      console.error('Auto-save failed:', error);
+      setSyncStatus('offline');
+    }
+  };
+
+  // Auto-save effect - debounced
+  useEffect(() => {
+    // Clear existing timer
+    if (autoSaveTimer) {
+      clearTimeout(autoSaveTimer);
+    }
+
+    // Only auto-save when form is open and there's content
+    if ((showAddForm || editingDream) && (formData.content || formData.title)) {
+      // Set new timer - auto-save after 2 seconds of no typing
+      const timer = setTimeout(() => {
+        autoSaveDraft();
+      }, 2000);
+      
+      setAutoSaveTimer(timer);
+    }
+
+    // Cleanup
+    return () => {
+      if (autoSaveTimer) {
+        clearTimeout(autoSaveTimer);
+      }
+    };
+  }, [formData.title, formData.content, formData.tags, formData.date]);
+
   // Create or update dream
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSyncStatus('syncing');
     try {
       const dreamData = {
-        title: formData.title,
+        title: formData.title || 'Untitled Dream',
         content: formData.content,
         date: formData.date,
         tags: formData.tags.split(',').map(t => t.trim()).filter(t => t)
@@ -112,6 +175,9 @@ const DreamJournal = ({ darkMode, setDarkMode }) => {
 
       if (editingDream) {
         await dreamAPI.update(editingDream.id, dreamData);
+      } else if (draftId) {
+        // Update the auto-saved draft
+        await dreamAPI.update(draftId, dreamData);
       } else {
         await dreamAPI.create(dreamData);
       }
@@ -119,6 +185,7 @@ const DreamJournal = ({ darkMode, setDarkMode }) => {
       setFormData({ title: '', content: '', date: new Date().toISOString().split('T')[0], tags: '' });
       setShowAddForm(false);
       setEditingDream(null);
+      setDraftId(null); // Clear draft ID
       setSyncStatus('synced');
       // Refresh data (real-time will update if Supabase is configured, otherwise we need to fetch)
       await loadData();
@@ -395,7 +462,11 @@ const DreamJournal = ({ darkMode, setDarkMode }) => {
             <div className="dream-form-card">
               <div className="form-header">
                 <h3>{editingDream ? 'Edit Dream' : 'New Dream'}</h3>
-                <button onClick={() => { setShowAddForm(false); setEditingDream(null); }}>
+                <button onClick={() => { 
+                  setShowAddForm(false); 
+                  setEditingDream(null);
+                  setDraftId(null);
+                }}>
                   <X size={20} />
                 </button>
               </div>
@@ -443,7 +514,11 @@ const DreamJournal = ({ darkMode, setDarkMode }) => {
                     <Save size={20} />
                     {editingDream ? 'Update Dream' : 'Save Dream'}
                   </button>
-                  <button type="button" className="cancel-btn" onClick={() => { setShowAddForm(false); setEditingDream(null); }}>
+                  <button type="button" className="cancel-btn" onClick={() => { 
+                    setShowAddForm(false); 
+                    setEditingDream(null);
+                    setDraftId(null);
+                  }}>
                     Cancel
                   </button>
                 </div>
