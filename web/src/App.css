@@ -1932,12 +1932,11 @@
   background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
   background-attachment: fixed;
   background-size: cover;
-  padding-top: env(safe-area-inset-top);
-  padding-bottom: max(40px, env(safe-area-inset-bottom));
-  padding-left: env(safe-area-inset-left);
-  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   width: 100%;
   overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .app-container.dark-mode {
@@ -1967,7 +1966,8 @@ html {
   position: sticky;
   top: 0;
   z-index: 100;
-  padding-top: env(safe-area-inset-top);
+  padding-top: env(safe-area-inset-top, 0px);
+  flex-shrink: 0;
 }
 
 .app-container.dark-mode .app-header {
@@ -1978,7 +1978,7 @@ html {
 .header-content {
   max-width: 1600px;
   margin: 0 auto;
-  padding: 20px 24px;
+  padding: 12px 24px;
   padding-left: max(24px, env(safe-area-inset-left));
   padding-right: max(24px, env(safe-area-inset-right));
   display: flex;
@@ -2046,6 +2046,11 @@ html {
 
 .app-container.dark-mode .theme-toggle {
   background: linear-gradient(135deg, #4c51bf 0%, #6b46c1 100%);
+}
+
+/* Content Wrapper - Fills remaining space */
+.app-container > *:not(.app-header) {
+  flex: 1 0 auto;
 }
 
 /* Stats Container - Modern Card Grid with Safe Areas */
@@ -2744,7 +2749,9 @@ html {
 
 @media (max-width: 768px) {
   .header-content {
-    padding: 16px 16px;
+    padding: 10px 16px;
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
   }
 
   .app-header h1 {
@@ -2803,7 +2810,9 @@ html {
 
 @media (max-width: 480px) {
   .header-content {
-    padding: 12px 12px;
+    padding: 8px 12px;
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
     flex-wrap: wrap;
   }
 
