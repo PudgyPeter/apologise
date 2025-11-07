@@ -74,7 +74,7 @@ const DreamJournal = ({ darkMode, setDarkMode }) => {
   useEffect(() => {
     loadData();
 
-    // Subscribe to real-time changes
+    // Subscribe to real-time changes (only if Supabase is configured)
     const subscription = dreamAPI.subscribeToChanges((payload) => {
       console.log('Real-time update received:', payload);
       
@@ -91,7 +91,9 @@ const DreamJournal = ({ darkMode, setDarkMode }) => {
     });
 
     return () => {
-      dreamAPI.unsubscribe(subscription);
+      if (subscription) {
+        dreamAPI.unsubscribe(subscription);
+      }
     };
   }, []);
 
@@ -117,7 +119,8 @@ const DreamJournal = ({ darkMode, setDarkMode }) => {
       setShowAddForm(false);
       setEditingDream(null);
       setSyncStatus('synced');
-      // Real-time will update the list automatically
+      // Refresh data (real-time will update if Supabase is configured, otherwise we need to fetch)
+      await loadData();
     } catch (error) {
       console.error('Error saving dream:', error);
       setSyncStatus('offline');
@@ -133,7 +136,8 @@ const DreamJournal = ({ darkMode, setDarkMode }) => {
         await dreamAPI.delete(dreamId);
         setSelectedDream(null);
         setSyncStatus('synced');
-        // Real-time will update the list automatically
+        // Refresh data
+        await loadData();
       } catch (error) {
         console.error('Error deleting dream:', error);
         setSyncStatus('offline');
