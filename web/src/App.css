@@ -1928,9 +1928,11 @@
 /* App Container - Beautiful Background with iOS Safe Areas */
 .app-container {
   min-height: 100vh;
+  min-height: 100dvh; /* Dynamic viewport height for mobile */
   background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
   background-attachment: scroll;
   width: 100%;
+  overflow-y: auto;
   overflow-x: hidden;
   padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
   position: relative;
@@ -2048,6 +2050,122 @@ body {
 
 .app-container.dark-mode .theme-toggle {
   background: linear-gradient(135deg, #4c51bf 0%, #6b46c1 100%);
+}
+
+/* Mobile Menu Toggle - Hidden on desktop */
+.mobile-menu-toggle {
+  display: none;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  padding: 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  color: white;
+}
+
+.mobile-menu-toggle:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+/* Mobile Sidebar Overlay */
+.mobile-sidebar-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.mobile-sidebar {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 85%;
+  max-width: 320px;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(20px);
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.2);
+  overflow-y: auto;
+  animation: slideInRight 0.3s ease-out;
+}
+
+.app-container.dark-mode .mobile-sidebar {
+  background: rgba(26, 32, 44, 0.98);
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.mobile-sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  position: sticky;
+  top: 0;
+  background: inherit;
+  z-index: 10;
+}
+
+.app-container.dark-mode .mobile-sidebar-header {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+.mobile-sidebar-header h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.mobile-sidebar-header button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #666;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.mobile-sidebar-header button:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #333;
+}
+
+.app-container.dark-mode .mobile-sidebar-header button {
+  color: #cbd5e0;
+}
+
+.app-container.dark-mode .mobile-sidebar-header button:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #e2e8f0;
+}
+
+.mobile-sidebar-content {
+  padding: 20px;
 }
 
 /* Stats Container - Modern Card Grid with Safe Areas */
@@ -2741,6 +2859,16 @@ body {
 
   .sidebar {
     display: none;
+  }
+
+  /* Show mobile menu toggle */
+  .mobile-menu-toggle {
+    display: flex;
+  }
+
+  /* Show mobile sidebar overlay when active */
+  .mobile-sidebar-overlay {
+    display: flex;
   }
 }
 

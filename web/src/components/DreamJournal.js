@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Moon, Plus, Search, TrendingUp, Calendar, Tag, X, Edit2, Trash2, Save, Wifi, WifiOff } from 'lucide-react';
+import { Moon, Plus, Search, TrendingUp, Calendar, Tag, X, Edit2, Trash2, Save, Wifi, WifiOff, Menu } from 'lucide-react';
 import { dreamAPI } from '../supabaseClient';
 
 const DreamJournal = ({ darkMode, setDarkMode }) => {
@@ -18,6 +18,7 @@ const DreamJournal = ({ darkMode, setDarkMode }) => {
   const [loading, setLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [syncStatus, setSyncStatus] = useState('synced'); // 'synced', 'syncing', 'offline'
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
 
   // Monitor online/offline status
   useEffect(() => {
@@ -221,6 +222,13 @@ const DreamJournal = ({ darkMode, setDarkMode }) => {
           </div>
           <div className="header-right">
             <button
+              className="mobile-menu-toggle"
+              onClick={() => setShowMobileSidebar(!showMobileSidebar)}
+              title="Menu"
+            >
+              <Menu size={24} />
+            </button>
+            <button
               className="theme-toggle"
               onClick={() => setDarkMode(!darkMode)}
               title={darkMode ? 'Light Mode' : 'Dark Mode'}
@@ -230,6 +238,59 @@ const DreamJournal = ({ darkMode, setDarkMode }) => {
           </div>
         </div>
       </header>
+
+      {/* Mobile Sidebar Overlay */}
+      {showMobileSidebar && (
+        <div className="mobile-sidebar-overlay" onClick={() => setShowMobileSidebar(false)}>
+          <div className="mobile-sidebar" onClick={(e) => e.stopPropagation()}>
+            <div className="mobile-sidebar-header">
+              <h2>Menu</h2>
+              <button onClick={() => setShowMobileSidebar(false)}>
+                <X size={24} />
+              </button>
+            </div>
+            <div className="mobile-sidebar-content">
+              {stats && (
+                <>
+                  <div className="sidebar-section">
+                    <h3><TrendingUp size={20} /> Top Keywords</h3>
+                    {stats.top_keywords.length > 0 ? (
+                      <div className="keywords-list">
+                        {stats.top_keywords.slice(0, 20).map((kw, idx) => (
+                          <div key={idx} className="keyword-item">
+                            <span className="keyword-word">{kw.word}</span>
+                            <span className="keyword-count">{kw.count}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="empty-state">No keywords yet</p>
+                    )}
+                  </div>
+
+                  <div className="sidebar-section">
+                    <h3><Calendar size={20} /> Dreams by Month</h3>
+                    {Object.keys(stats.dreams_by_month).length > 0 ? (
+                      <div className="months-list">
+                        {Object.entries(stats.dreams_by_month)
+                          .sort((a, b) => b[0].localeCompare(a[0]))
+                          .map(([month, count]) => (
+                            <div key={month} className="month-item">
+                              <span className="month-name">{month}</span>
+                              <span className="month-count">{count}</span>
+                            </div>
+                          ))}
+                      </div>
+                    ) : (
+                      <p className="empty-state">No dreams yet</p>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stats Dashboard */}
       {stats && (
