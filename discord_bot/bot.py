@@ -854,7 +854,7 @@ async def logs_prune(ctx, *, name: str):
 
 @logs.command(name="delete")
 @commands.has_permissions(manage_messages=True)
-async def logs_prune(ctx, *, name: str):
+async def logs_delete(ctx, *, name: str):
     removed = False
     for ext in [".json", ".txt"]:
         p = BASE_LOG_DIR / f"custom_{name}{ext}"
