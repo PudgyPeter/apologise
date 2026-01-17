@@ -14,6 +14,7 @@ import requests
 TOKEN = os.getenv("TOKEN")
 LOG_CHANNEL_ID = 1430766113721028658
 ALERT_CHANNEL_ID = 1431130781975187537
+IGNORED_CHANNEL_ID = 1462042281258389576
 KEYWORDS = ["jordan", "pudge", "pudgy", "jorganism"]
 FUZZY_TOLERANCE = 2
 GROUP_WINDOW = 10  # seconds to group messages
@@ -386,6 +387,10 @@ async def before_prune():
 async def on_message(message: discord.Message):
     if message.author.bot or not message.guild:
         return
+    
+    if message.channel.id == IGNORED_CHANNEL_ID:
+        await bot.process_commands(message)
+        return
 
     # Get role color
     role_color = None
@@ -444,6 +449,9 @@ async def on_message(message: discord.Message):
 @bot.event
 async def on_message_edit(before, after):
     if before.author.bot:
+        return
+    
+    if before.channel.id == IGNORED_CHANNEL_ID:
         return
     
     # Get role color
@@ -520,6 +528,9 @@ async def on_message_edit(before, after):
 @bot.event
 async def on_message_delete(message):
     if message.author.bot:
+        return
+    
+    if message.channel.id == IGNORED_CHANNEL_ID:
         return
     
     # Get role color
@@ -701,17 +712,11 @@ async def logs_list(ctx):
         await ctx.send("No logs found yet.")
         return
     embed = discord.Embed(title="Available Logs", color=discord.Color.blurple())
-    view = View()
     for f in files:
         date_str = f.stem.replace("logs_", "").replace("custom_", "")
         size_kb = f.stat().st_size // 1024
-        embed.add_field(name=f"🗓️ {date_str} ({size_kb} KB)", value=f"Click below to download.", inline=False)
-        btn = Button(label=f"Download {date_str}", style=discord.ButtonStyle.primary)
-        async def download_callback(interaction, file=f):
-            await interaction.response.send_message(file=discord.File(file, filename=file.name), ephemeral=True)
-        btn.callback = download_callback
-        view.add_item(btn)
-    await ctx.send(embed=embed, view=view)
+        embed.add_field(name=f"🗓️ {date_str}", value=f"{size_kb} KB - Use `!logs download {date_str}`", inline=False)
+    await ctx.send(embed=embed)
 
 @logs.command(name="download")
 async def logs_download(ctx, date: str = None):
