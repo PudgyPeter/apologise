@@ -748,19 +748,19 @@ async def logs_search(ctx, *, term: str = None):
         if not term:
             await ctx.send("❌ Please provide a search term: `!logs search <term>`")
             return
-        await ctx.trigger_typing()
-        results = []
-        # search both daily and custom JSON logs
-        for log_file in sorted(BASE_LOG_DIR.glob("*.json")):
-            data = load_log(log_file)
-            for entry in data:
-                if fuzzy_contains(entry.get("content", ""), term):
-                    results.append(entry)
-            if len(results) > MAX_SEARCH_RESULTS:
-                break
-        if not results:
-            await ctx.send(f"No results found for `{term}`.")
-            return
+        async with ctx.typing():
+            results = []
+            # search both daily and custom JSON logs
+            for log_file in sorted(BASE_LOG_DIR.glob("*.json")):
+                data = load_log(log_file)
+                for entry in data:
+                    if fuzzy_contains(entry.get("content", ""), term):
+                        results.append(entry)
+                if len(results) > MAX_SEARCH_RESULTS:
+                    break
+            if not results:
+                await ctx.send(f"No results found for `{term}`.")
+                return
     except Exception as e:
         await ctx.send(f"❌ Error: {e}")
         print(f"[💥] logs search error: {e}")
