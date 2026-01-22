@@ -699,24 +699,32 @@ async def on_ready():
     print(f"[✅] Logged in as {bot.user} (ID: {bot.user.id})")
 
 # --- LOG COMMANDS (list/download/search) ---
+@bot.command(name="ping")
+async def ping(ctx):
+    await ctx.send("🏓 Pong! Bot is responding to commands.")
+
 @bot.group(invoke_without_command=True)
 async def logs(ctx):
     await ctx.send("Use `!logs list`, `!logs search <term>`, `!logs download <date|today>`, or `!logs prune <name>`")
 
 @logs.command(name="list")
 async def logs_list(ctx):
-    files = sorted(BASE_LOG_DIR.glob("logs_*.txt"))
-    custom = sorted(BASE_LOG_DIR.glob("custom_*.txt"))
-    files = files + custom
-    if not files:
-        await ctx.send("No logs found yet.")
-        return
-    embed = discord.Embed(title="Available Logs", color=discord.Color.blurple())
-    for f in files:
-        date_str = f.stem.replace("logs_", "").replace("custom_", "")
-        size_kb = f.stat().st_size // 1024
-        embed.add_field(name=f"🗓️ {date_str}", value=f"{size_kb} KB - Use `!logs download {date_str}`", inline=False)
-    await ctx.send(embed=embed)
+    try:
+        files = sorted(BASE_LOG_DIR.glob("logs_*.txt"))
+        custom = sorted(BASE_LOG_DIR.glob("custom_*.txt"))
+        files = files + custom
+        if not files:
+            await ctx.send("No logs found yet.")
+            return
+        embed = discord.Embed(title="Available Logs", color=discord.Color.blurple())
+        for f in files:
+            date_str = f.stem.replace("logs_", "").replace("custom_", "")
+            size_kb = f.stat().st_size // 1024
+            embed.add_field(name=f"🗓️ {date_str}", value=f"{size_kb} KB - Use `!logs download {date_str}`", inline=False)
+        await ctx.send(embed=embed)
+    except Exception as e:
+        await ctx.send(f"❌ Error: {e}")
+        print(f"[💥] logs list error: {e}")
 
 @logs.command(name="download")
 async def logs_download(ctx, date: str = None):
@@ -735,19 +743,27 @@ async def logs_download(ctx, date: str = None):
     await ctx.send(file=discord.File(log_file_txt, filename=f"{log_file_txt.stem}.txt"))
 
 @logs.command(name="search")
-async def logs_search(ctx, *, term: str):
-    await ctx.trigger_typing()
-    results = []
-    # search both daily and custom JSON logs
-    for log_file in sorted(BASE_LOG_DIR.glob("*.json")):
-        data = load_log(log_file)
-        for entry in data:
-            if fuzzy_contains(entry.get("content", ""), term):
-                results.append(entry)
-        if len(results) > MAX_SEARCH_RESULTS:
-            break
-    if not results:
-        await ctx.send(f"No results found for `{term}`.")
+async def logs_search(ctx, *, term: str = None):
+    try:
+        if not term:
+            await ctx.send("❌ Please provide a search term: `!logs search <term>`")
+            return
+        await ctx.trigger_typing()
+        results = []
+        # search both daily and custom JSON logs
+        for log_file in sorted(BASE_LOG_DIR.glob("*.json")):
+            data = load_log(log_file)
+            for entry in data:
+                if fuzzy_contains(entry.get("content", ""), term):
+                    results.append(entry)
+            if len(results) > MAX_SEARCH_RESULTS:
+                break
+        if not results:
+            await ctx.send(f"No results found for `{term}`.")
+            return
+    except Exception as e:
+        await ctx.send(f"❌ Error: {e}")
+        print(f"[💥] logs search error: {e}")
         return
     per_page = 10
     total_pages = (len(results) + per_page - 1) // per_page
