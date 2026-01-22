@@ -7,7 +7,7 @@ import pathlib
 from datetime import datetime, timedelta
 import re
 import asyncio
-from discord.ui import Button, View
+from discord.ui import Button, View, Modal, TextInput
 import requests
 
 # --- CONFIGURATION ---
@@ -707,21 +707,103 @@ async def ping(ctx):
 async def logs(ctx):
     await ctx.send("Use `!logs list`, `!logs search <term>`, `!logs download <date|today>`, or `!logs prune <name>`")
 
+class PageModal(Modal, title="Go to Page"):
+    page_input = TextInput(label="Page Number", placeholder="Enter page number...", required=True, max_length=5)
+    
+    def __init__(self, ctx, files, total_pages):
+        super().__init__()
+        self.ctx = ctx
+        self.files = files
+        self.total_pages = total_pages
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        try:
+            page = int(self.page_input.value)
+            if page < 1 or page > self.total_pages:
+                await interaction.response.send_message(f"❌ Invalid page number. Please use a page between 1 and {self.total_pages}.", ephemeral=True)
+                return
+            
+            embed, view = create_logs_list_page(self.files, page, self.total_pages, self.ctx)
+            await interaction.response.send_message(embed=embed, view=view, ephemeral=False)
+        except ValueError:
+            await interaction.response.send_message("❌ Please enter a valid number.", ephemeral=True)
+
+class LogsListView(View):
+    def __init__(self, ctx, files, current_page, total_pages):
+        super().__init__(timeout=300)
+        self.ctx = ctx
+        self.files = files
+        self.current_page = current_page
+        self.total_pages = total_pages
+        
+        # Previous button
+        prev_button = Button(label="◀ Previous", style=discord.ButtonStyle.primary, disabled=(current_page == 1))
+        prev_button.callback = self.previous_page
+        self.add_item(prev_button)
+        
+        # Go to page button
+        goto_button = Button(label="Go to Page...", style=discord.ButtonStyle.secondary)
+        goto_button.callback = self.goto_page
+        self.add_item(goto_button)
+        
+        # Next button
+        next_button = Button(label="Next ▶", style=discord.ButtonStyle.primary, disabled=(current_page == total_pages))
+        next_button.callback = self.next_page
+        self.add_item(next_button)
+    
+    async def previous_page(self, interaction: discord.Interaction):
+        if self.current_page > 1:
+            embed, view = create_logs_list_page(self.files, self.current_page - 1, self.total_pages, self.ctx)
+            await interaction.response.edit_message(embed=embed, view=view)
+    
+    async def next_page(self, interaction: discord.Interaction):
+        if self.current_page < self.total_pages:
+            embed, view = create_logs_list_page(self.files, self.current_page + 1, self.total_pages, self.ctx)
+            await interaction.response.edit_message(embed=embed, view=view)
+    
+    async def goto_page(self, interaction: discord.Interaction):
+        modal = PageModal(self.ctx, self.files, self.total_pages)
+        await interaction.response.send_modal(modal)
+
+def create_logs_list_page(files, page, total_pages, ctx):
+    per_page = 20
+    start_idx = (page - 1) * per_page
+    end_idx = min(start_idx + per_page, len(files))
+    page_files = files[start_idx:end_idx]
+    
+    embed = discord.Embed(
+        title=f"Available Logs (Page {page}/{total_pages})",
+        description=f"Showing {len(page_files)} of {len(files)} total logs",
+        color=discord.Color.blurple()
+    )
+    
+    for f in page_files:
+        date_str = f.stem.replace("logs_", "").replace("custom_", "")
+        size_kb = f.stat().st_size // 1024
+        embed.add_field(name=f"🗓️ {date_str}", value=f"{size_kb} KB - Use `!logs download {date_str}`", inline=False)
+    
+    view = LogsListView(ctx, files, page, total_pages)
+    return embed, view
+
 @logs.command(name="list")
-async def logs_list(ctx):
+async def logs_list(ctx, page: int = 1):
     try:
-        files = sorted(BASE_LOG_DIR.glob("logs_*.txt"))
-        custom = sorted(BASE_LOG_DIR.glob("custom_*.txt"))
+        files = sorted(BASE_LOG_DIR.glob("logs_*.txt"), reverse=True)
+        custom = sorted(BASE_LOG_DIR.glob("custom_*.txt"), reverse=True)
         files = files + custom
         if not files:
             await ctx.send("No logs found yet.")
             return
-        embed = discord.Embed(title="Available Logs", color=discord.Color.blurple())
-        for f in files:
-            date_str = f.stem.replace("logs_", "").replace("custom_", "")
-            size_kb = f.stat().st_size // 1024
-            embed.add_field(name=f"🗓️ {date_str}", value=f"{size_kb} KB - Use `!logs download {date_str}`", inline=False)
-        await ctx.send(embed=embed)
+        
+        per_page = 20
+        total_pages = (len(files) + per_page - 1) // per_page
+        
+        if page < 1 or page > total_pages:
+            await ctx.send(f"❌ Invalid page number. Please use a page between 1 and {total_pages}.")
+            return
+        
+        embed, view = create_logs_list_page(files, page, total_pages, ctx)
+        await ctx.send(embed=embed, view=view)
     except Exception as e:
         await ctx.send(f"❌ Error: {e}")
         print(f"[💥] logs list error: {e}")
