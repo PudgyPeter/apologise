@@ -56,31 +56,28 @@ def load_log(log_path: pathlib.Path):
         log_path.write_text("[]", encoding="utf-8")
         return []
 
-def append_to_live_messages(entry: dict):
-    """Send message to web API for live feed"""
+def _send_live_message_sync(entry_copy: dict):
+    """Synchronous helper — runs inside an executor thread."""
     try:
-        # Get the web API URL from environment or use default
         api_url = os.getenv("WEB_API_URL", "https://apologise-production.up.railway.app")
         endpoint = f"{api_url}/api/live"
-        
-        print(f"[🔴 LIVE] Sending message to API: {endpoint}")
-        
-        # Convert datetime objects to ISO strings for JSON serialization
+        response = requests.post(endpoint, json=entry_copy, timeout=5)
+        if response.status_code != 200:
+            print(f"[� LIVE] API returned status {response.status_code}: {response.text}")
+    except Exception as e:
+        print(f"[💥] Live messages error: {e}")
+
+def append_to_live_messages(entry: dict):
+    """Send message to web API for live feed (non-blocking)."""
+    try:
         entry_copy = entry.copy()
         if 'created_at' in entry_copy and hasattr(entry_copy['created_at'], 'isoformat'):
             entry_copy['created_at'] = entry_copy['created_at'].isoformat()
-        
-        print(f"[🔴 LIVE] Sending entry with role_color: {entry_copy.get('role_color')}")
-        response = requests.post(endpoint, json=entry_copy, timeout=5)
-        
-        if response.status_code == 200:
-            print(f"[🔴 LIVE] Successfully sent message to API")
-        else:
-            print(f"[💥 LIVE] API returned status {response.status_code}: {response.text}")
+        # Run the blocking HTTP call in a background thread so the event loop is not stalled
+        loop = asyncio.get_event_loop()
+        loop.run_in_executor(None, _send_live_message_sync, entry_copy)
     except Exception as e:
-        print(f"[💥] Live messages error: {e}")
-        # Don't print full traceback to avoid spam, just log the error
-        pass
+        print(f"[💥] Live messages dispatch error: {e}")
 
 def append_log(entry: dict):
     try:
@@ -352,6 +349,9 @@ async def add_message_to_group(message: discord.Message):
             return
         group_cache[group_key]["log_channel_id"] = LOG_CHANNEL_ID
         result = build_group_embed(group_key)
+        if not result:
+            channel_last_author[message.channel.id] = (message.author.id, message.id, now)
+            return
         try:
             embed, image_url = result
             sent = await log_chan.send(embed=embed)
@@ -376,7 +376,12 @@ async def prune_groups():
         if (now - data["last_time"]).total_seconds() >= GROUP_PRUNE:
             to_remove.append(key)
     for k in to_remove:
-        group_cache.pop(k, None)
+        data = group_cache.pop(k, None)
+        if data:
+            # Clean up message_to_group references pointing to this group
+            stale_ids = [mid for mid, (gk, _) in message_to_group.items() if gk == k]
+            for mid in stale_ids:
+                message_to_group.pop(mid, None)
 
 @prune_groups.before_loop
 async def before_prune():
@@ -422,11 +427,11 @@ async def on_message(message: discord.Message):
     if has_text and not has_attachments and fuzzy_match(message.content, KEYWORDS):
         alert = discord.Embed(
             title="🚨 Keyword Detected!",
-            description=f"**[{message.author}]** mentioned a watched term in <#{message.channel.id}>:\n\n> {message.content}",
+            description=f"**[{message.author}]** mentioned a watched term in <#{message.channel.id}>:\n\n> {message.content}"[:4000],
             color=discord.Color.red(),
             timestamp=message.created_at
         )
-        alert.set_thumbnail(url=message.author.avatar.url if message.author.avatar else discord.Embed.Empty)
+        alert.set_thumbnail(url=message.author.avatar.url if message.author.avatar else None)
         alert.set_footer(text=f"Detected at {datetime.utcnow().strftime('%H:%M:%S UTC')}")
         alert_channel = bot.get_channel(ALERT_CHANNEL_ID)
         if alert_channel:
@@ -495,8 +500,10 @@ async def on_message_edit(before, after):
         log_channel = bot.get_channel(LOG_CHANNEL_ID)
         if log_channel:
             embed = discord.Embed(title="✏️ Message Edited", color=discord.Color.gold(), timestamp=datetime.utcnow())
-            embed.add_field(name="Before", value=before.content or "(no text)", inline=False)
-            embed.add_field(name="After", value=after.content or "(no text)", inline=False)
+            before_text = (before.content or "(no text)")[:1024]
+            after_text = (after.content or "(no text)")[:1024]
+            embed.add_field(name="Before", value=before_text, inline=False)
+            embed.add_field(name="After", value=after_text, inline=False)
             
             attachment_urls = []
             if after.attachments:
@@ -513,7 +520,7 @@ async def on_message_edit(before, after):
                     except Exception:
                         continue
             
-            embed.set_thumbnail(url=before.author.avatar.url if before.author.avatar else discord.Embed.Empty)
+            embed.set_thumbnail(url=before.author.avatar.url if before.author.avatar else None)
             embed.set_footer(text=datetime.utcnow().strftime("%b %d • %H:%M:%S UTC"))
             await log_channel.send(embed=embed)
             
@@ -576,14 +583,7 @@ async def on_message_delete(message):
         attachment_links = []
         if message.attachments:
             for att in message.attachments:
-                # Check if it's media that can be embedded
-                is_image = any(att.filename.lower().endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".gif", ".webp"])
-                is_video = any(att.filename.lower().endswith(ext) for ext in [".mp4", ".mov", ".webm"])
-                
-                # Collect all attachment URLs for sending
                 all_attachment_urls.append(att.url)
-                
-                # Also add as links in embed
                 attachment_links.append(f"[{att.filename}]({att.url})")
             
             # Add links for attachments in the embed
@@ -602,7 +602,7 @@ async def on_message_delete(message):
                 except Exception:
                     continue
         
-        embed.set_thumbnail(url=message.author.avatar.url if message.author.avatar else discord.Embed.Empty)
+        embed.set_thumbnail(url=message.author.avatar.url if message.author.avatar else None)
         embed.set_footer(text=f"Original message from {message.created_at.strftime('%b %d • %H:%M:%S UTC')}")
         
         try:
@@ -622,7 +622,7 @@ async def on_message_delete(message):
 async def update_reaction_on_embed(message: discord.Message, reaction: discord.Reaction):
     mg = message_to_group.get(message.id)
     try:
-        users = await reaction.users().flatten()
+        users = [u async for u in reaction.users()]
         user_names = [str(u) for u in users if not u.bot][:5]
     except Exception:
         user_names = []
@@ -672,7 +672,7 @@ async def update_reaction_on_embed(message: discord.Message, reaction: discord.R
         log_channel = bot.get_channel(LOG_CHANNEL_ID)
         if log_channel:
             embed = discord.Embed(title="🔁 Reaction Update", color=discord.Color.orange(), timestamp=datetime.utcnow())
-            embed.add_field(name="Message", value=f"{message.content[:200] or '(no text)'}", inline=False)
+            embed.add_field(name="Message", value=(message.content[:200] if message.content else "(no text)"), inline=False)
             embed.add_field(name="Reaction", value=f"{emoji} x{count} — {', '.join(user_names[:5])}", inline=False)
             embed.set_footer(text=f"#{message.channel.name}")
             await log_channel.send(embed=embed)
@@ -695,13 +695,17 @@ async def on_reaction_remove(reaction, user):
 # --- PRUNE START ---
 @bot.event
 async def on_ready():
-    prune_groups.start()
+    if not prune_groups.is_running():
+        prune_groups.start()
+    guild_list = ', '.join(f"{g.name} ({g.member_count} members)" for g in bot.guilds)
     print(f"[✅] Logged in as {bot.user} (ID: {bot.user.id})")
+    print(f"[✅] Connected to {len(bot.guilds)} guild(s): {guild_list}")
 
 # --- LOG COMMANDS (list/download/search) ---
 @bot.command(name="ping")
 async def ping(ctx):
-    await ctx.send("🏓 Pong! Bot is responding to commands.")
+    latency_ms = round(bot.latency * 1000)
+    await ctx.send(f"🏓 Pong! **{latency_ms}ms** websocket latency.")
 
 @bot.group(invoke_without_command=True)
 async def logs(ctx):
@@ -824,6 +828,53 @@ async def logs_download(ctx, date: str = None):
         return
     await ctx.send(file=discord.File(log_file_txt, filename=f"{log_file_txt.stem}.txt"))
 
+class SearchResultsView(View):
+    def __init__(self, results, term, current_page, total_pages):
+        super().__init__(timeout=300)
+        self.results = results
+        self.term = term
+        self.current_page = current_page
+        self.total_pages = total_pages
+
+        prev_btn = Button(label="◀ Previous", style=discord.ButtonStyle.primary, disabled=(current_page <= 1))
+        prev_btn.callback = self.previous_page
+        self.add_item(prev_btn)
+
+        next_btn = Button(label="Next ▶", style=discord.ButtonStyle.primary, disabled=(current_page >= total_pages))
+        next_btn.callback = self.next_page
+        self.add_item(next_btn)
+
+    def _make_embed(self, page):
+        per_page = 10
+        start = (page - 1) * per_page
+        end = start + per_page
+        embed = discord.Embed(
+            title=f"🔍 Results for '{self.term}' (Page {page}/{self.total_pages})",
+            description=f"{len(self.results)} results found",
+            color=discord.Color.green()
+        )
+        for r in self.results[start:end]:
+            try:
+                ts = datetime.fromisoformat(r["created_at"]).strftime("%H:%M:%S")
+            except Exception:
+                ts = "??:??:??"
+            snippet = (r['content'][:180] + "...") if len(r.get('content', '')) > 180 else (r.get('content', '') or '(no text)')
+            field_name = f"{r.get('author', '?')} — #{r.get('channel', '?')} ({r.get('type', '')})"[:256]
+            embed.add_field(name=field_name, value=f"[{ts}] {snippet}"[:1024], inline=False)
+        return embed
+
+    async def previous_page(self, interaction: discord.Interaction):
+        if self.current_page > 1:
+            self.current_page -= 1
+            view = SearchResultsView(self.results, self.term, self.current_page, self.total_pages)
+            await interaction.response.edit_message(embed=view._make_embed(self.current_page), view=view)
+
+    async def next_page(self, interaction: discord.Interaction):
+        if self.current_page < self.total_pages:
+            self.current_page += 1
+            view = SearchResultsView(self.results, self.term, self.current_page, self.total_pages)
+            await interaction.response.edit_message(embed=view._make_embed(self.current_page), view=view)
+
 @logs.command(name="search")
 async def logs_search(ctx, *, term: str = None):
     try:
@@ -848,36 +899,9 @@ async def logs_search(ctx, *, term: str = None):
         print(f"[💥] logs search error: {e}")
         return
     per_page = 10
-    total_pages = (len(results) + per_page - 1) // per_page
-    def make_page(page):
-        start, end = page * per_page, (page + 1) * per_page
-        embed = discord.Embed(title=f"🔍 Results for '{term}' ({page+1}/{total_pages})", color=discord.Color.green())
-        for r in results[start:end]:
-            ts = datetime.fromisoformat(r["created_at"]).strftime("%H:%M:%S")
-            snippet = (r['content'][:180] + "...") if len(r.get('content','')) > 180 else r.get('content','')
-            embed.add_field(name=f"{r['author']} — #{r['channel']} ({r.get('type','')})", value=f"[{ts}] {snippet}", inline=False)
-        return embed
-    page = 0
-    msg = await ctx.send(embed=make_page(page))
-    for emoji in ["⏮️", "◀️", "▶️", "⏭️"]:
-        await msg.add_reaction(emoji)
-    def check(reaction, user):
-        return user == ctx.author and str(reaction.emoji) in ["⏮️", "◀️", "▶️", "⏭️"]
-    while True:
-        try:
-            reaction, user = await bot.wait_for("reaction_add", timeout=120.0, check=check)
-            await msg.remove_reaction(reaction.emoji, user)
-            if str(reaction.emoji) == "⏮️":
-                page = 0
-            elif str(reaction.emoji) == "◀️" and page > 0:
-                page -= 1
-            elif str(reaction.emoji) == "▶️" and page < total_pages - 1:
-                page += 1
-            elif str(reaction.emoji) == "⏭️":
-                page = total_pages - 1
-            await msg.edit(embed=make_page(page))
-        except asyncio.TimeoutError:
-            break
+    total_pages = max(1, (len(results) + per_page - 1) // per_page)
+    view = SearchResultsView(results, term, 1, total_pages)
+    await ctx.send(embed=view._make_embed(1), view=view)
 
 # --- CUSTOM LOG CREATION AND PRUNING ---
 @bot.command(name="create")
@@ -903,9 +927,11 @@ async def create_custom_log(ctx, subcommand=None, amount: int = None, name: str 
     else:
         target_channel = ctx.channel
     
-    await ctx.send(f"Creating custom log `{name}` with last {amount} messages from #{target_channel.name}... ⏳")
+    progress_msg = await ctx.send(f"Creating custom log `{name}` with last {amount} messages from #{target_channel.name}... ⏳")
     messages = []
+    fetched = 0
     async for msg in target_channel.history(limit=amount):
+        fetched += 1
         if msg.author.bot:
             continue
         messages.append({
@@ -917,6 +943,12 @@ async def create_custom_log(ctx, subcommand=None, amount: int = None, name: str 
             "channel": target_channel.name,
             "attachments": [a.url for a in msg.attachments],
         })
+        # Update progress every 500 messages
+        if fetched % 500 == 0:
+            try:
+                await progress_msg.edit(content=f"Fetched {fetched}/{amount} messages... ⏳")
+            except Exception:
+                pass
     
     # Reverse to get chronological order (oldest to newest)
     messages.reverse()
@@ -960,6 +992,53 @@ async def logs_delete(ctx, *, name: str):
             p.unlink()
             removed = True
     await ctx.send(f"{'🗑️ Deleted' if removed else '❌ No such log found'} `{name}`")
+
+# --- INVITE COMMAND ---
+@bot.command(name="inviteme")
+async def inviteme(ctx):
+    """Create and post an invite link for every server the bot is in."""
+    await ctx.send("Generating invite links for all servers... \u23f3")
+    embeds = []
+    for guild in bot.guilds:
+        invite_url = None
+        # Try to create an invite from the first text channel we have permission for
+        for channel in guild.text_channels:
+            perms = channel.permissions_for(guild.me)
+            if perms.create_instant_invite:
+                try:
+                    invite = await channel.create_invite(
+                        max_age=0,      # never expires
+                        max_uses=0,     # unlimited uses
+                        unique=False    # reuse existing invite if possible
+                    )
+                    invite_url = str(invite)
+                    break
+                except Exception:
+                    continue
+        embed = discord.Embed(
+            title=guild.name,
+            color=discord.Color.green() if invite_url else discord.Color.red()
+        )
+        if guild.icon:
+            embed.set_thumbnail(url=guild.icon.url)
+        embed.add_field(
+            name="Members",
+            value=str(guild.member_count),
+            inline=True
+        )
+        if invite_url:
+            embed.add_field(name="Invite", value=invite_url, inline=False)
+        else:
+            embed.add_field(name="Invite", value="\u274c No permission to create invite", inline=False)
+        embeds.append(embed)
+
+    if not embeds:
+        await ctx.send("I'm not in any servers!")
+        return
+
+    # Discord allows up to 10 embeds per message
+    for i in range(0, len(embeds), 10):
+        await ctx.send(embeds=embeds[i:i+10])
 
 # --- START BOT ---
 bot.run(TOKEN)
