@@ -120,7 +120,8 @@ intents.guilds = True
 intents.members = True
 intents.reactions = True
 intents.message_content = True
-bot = commands.Bot(command_prefix="!", intents=intents)
+bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
+bot_start_time = datetime.utcnow()
 
 # --- FUZZY HELPERS ---
 def levenshtein(a, b):
@@ -459,6 +460,10 @@ async def on_message_edit(before, after):
     if before.channel.id == IGNORED_CHANNEL_ID:
         return
     
+    # Ignore phantom edits (embed previews loading, no actual content change)
+    if before.content == after.content:
+        return
+    
     # Get role color
     role_color = None
     if before.guild and isinstance(before.author, discord.Member):
@@ -705,7 +710,53 @@ async def on_ready():
 @bot.command(name="ping")
 async def ping(ctx):
     latency_ms = round(bot.latency * 1000)
-    await ctx.send(f"🏓 Pong! **{latency_ms}ms** websocket latency.")
+    uptime = datetime.utcnow() - bot_start_time
+    hours, remainder = divmod(int(uptime.total_seconds()), 3600)
+    minutes, seconds = divmod(remainder, 60)
+    await ctx.send(f"🏓 Pong! **{latency_ms}ms** latency • Uptime: **{hours}h {minutes}m {seconds}s**")
+
+@bot.command(name="help")
+async def custom_help(ctx):
+    embed = discord.Embed(
+        title="📖 Bot Commands",
+        color=discord.Color.blurple()
+    )
+    embed.add_field(
+        name="📡 General",
+        value="`!ping` — Latency & uptime\n`!help` — This message\n`!inviteme` — Invite links for all servers",
+        inline=False
+    )
+    embed.add_field(
+        name="📄 Logs",
+        value=(
+            "`!logs list [page]` — Browse available logs\n"
+            "`!logs download <YYYY-MM-DD|today|name>` — Download a log file\n"
+            "`!logs search <term>` — Search across all logs\n"
+            "`!logs prune <name>` — Delete a custom log\n"
+            "`!logs delete <name>` — Alias for prune"
+        ),
+        inline=False
+    )
+    embed.add_field(
+        name="🛠️ Admin *(Manage Messages)*",
+        value="`!create log <amount> <name> [channel_id]` — Export messages to a custom log",
+        inline=False
+    )
+    embed.set_footer(text="Prefix: !")
+    await ctx.send(embed=embed)
+
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.MissingPermissions):
+        await ctx.send("❌ You don't have permission to use that command.")
+    elif isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send(f"❌ Missing argument: `{error.param.name}`. Use `!help` for usage info.")
+    elif isinstance(error, commands.BadArgument):
+        await ctx.send(f"❌ Bad argument: {error}. Use `!help` for usage info.")
+    elif isinstance(error, commands.CommandNotFound):
+        pass  # Silently ignore unknown commands
+    else:
+        print(f"[💥] Command error in {ctx.command}: {error}")
 
 @bot.group(invoke_without_command=True)
 async def logs(ctx):
@@ -817,14 +868,15 @@ async def logs_download(ctx, date: str = None):
     if date is None or date.lower() == "today":
         log_file_txt = get_daily_log_path().with_suffix(".txt")
     else:
+        # Try as a date first
         try:
             datetime.strptime(date, "%Y-%m-%d")
             log_file_txt = BASE_LOG_DIR / f"logs_{date}.txt"
         except ValueError:
-            await ctx.send("Please provide the date in `YYYY-MM-DD` format.")
-            return
+            # Fall back to custom log name
+            log_file_txt = BASE_LOG_DIR / f"custom_{date}.txt"
     if not log_file_txt.exists():
-        await ctx.send(f"No log file found for `{date or 'today'}`.")
+        await ctx.send(f"No log file found for `{date or 'today'}`. Use `!logs list` to see available logs.")
         return
     await ctx.send(file=discord.File(log_file_txt, filename=f"{log_file_txt.stem}.txt"))
 
@@ -909,6 +961,9 @@ async def logs_search(ctx, *, term: str = None):
 async def create_custom_log(ctx, subcommand=None, amount: int = None, name: str = None, channel_id: int = None):
     if subcommand != "log" or not amount or not name:
         await ctx.send("Usage: `!create log <amount> <name> [channel_id]`")
+        return
+    if not re.match(r'^[a-zA-Z0-9_-]+$', name):
+        await ctx.send("❌ Log name must only contain letters, numbers, hyphens, and underscores.")
         return
     if amount > 5000:
         await ctx.send("❌ You can only export up to 5000 messages at once.")
