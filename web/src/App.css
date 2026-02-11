@@ -153,7 +153,8 @@ body, html {
 .dc-channel-list {
   padding: 0 8px;
   overflow-y: auto;
-  flex-shrink: 1;
+  flex: 2 1 0;
+  min-height: 0;
 }
 
 .dc-channel-list::-webkit-scrollbar { width: 4px; }
@@ -197,6 +198,13 @@ body, html {
   font-size: 11px;
   color: #6d6f78;
   flex-shrink: 0;
+}
+
+/* Log files list - compact */
+.dc-log-files {
+  flex: 1 1 0;
+  max-height: 200px;
+  min-height: 80px;
 }
 
 /* Log items in sidebar */

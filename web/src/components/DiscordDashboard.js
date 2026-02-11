@@ -36,7 +36,7 @@ function DiscordDashboard({ darkMode, setDarkMode }) {
   const [activeTab, setActiveTab] = useState('live');
   const [liveMessages, setLiveMessages] = useState([]);
   const [autoScroll] = useState(true);
-  const [displayCount, setDisplayCount] = useState(50);
+  const [displayCount, setDisplayCount] = useState(100);
 
   // Discord-like features
   const [channels, setChannels] = useState([]);
@@ -207,13 +207,21 @@ function DiscordDashboard({ darkMode, setDarkMode }) {
     return data;
   }, [getDataForTab, selectedChannel, selectedUser, filterType]);
 
-  const displayedData = filteredData().slice(0, displayCount);
-  const hasMore = filteredData().length > displayCount;
+  const allFiltered = filteredData();
+  const displayedData = allFiltered.slice(Math.max(0, allFiltered.length - displayCount));
+  const hasMore = allFiltered.length > displayCount;
 
   const handleScroll = (e) => {
-    const { scrollTop, scrollHeight, clientHeight } = e.target;
-    if (scrollHeight - scrollTop - clientHeight < 200 && hasMore && !loading) {
+    const { scrollTop } = e.target;
+    // Load older messages when scrolling near the top
+    if (scrollTop < 300 && hasMore && !loading) {
+      const el = e.target;
+      const prevHeight = el.scrollHeight;
       setDisplayCount(prev => prev + 50);
+      // Preserve scroll position after prepending older messages
+      requestAnimationFrame(() => {
+        el.scrollTop = el.scrollHeight - prevHeight + scrollTop;
+      });
     }
   };
 
@@ -558,9 +566,9 @@ function DiscordDashboard({ darkMode, setDarkMode }) {
 
             {activeTab !== 'stats' && !loading && displayedData.length > 0 && (
               <>
-                <div className="dc-msg-count">{filteredData().length.toLocaleString()} messages {hasActiveFilters ? '(filtered)' : ''}</div>
+                {hasMore && <div className="dc-loading-more">Scroll up for older messages...</div>}
+                <div className="dc-msg-count">{allFiltered.length.toLocaleString()} messages {hasActiveFilters ? '(filtered)' : ''}</div>
                 {displayedData.map((entry, i) => renderMessage(entry, i))}
-                {hasMore && <div className="dc-loading-more">Loading more messages...</div>}
                 <div ref={messagesEndRef} />
               </>
             )}
