@@ -79,7 +79,6 @@ def load_today_into_cache():
         try:
             messages = load_log(today_log)
             live_messages_cache = messages[-MAX_LIVE_CACHE:]
-            print(f"[✅ CACHE] Loaded {len(live_messages_cache)} messages from today's log")
         except Exception as e:
             print(f"[💥 CACHE] Error loading today's log: {e}")
 
@@ -308,16 +307,19 @@ def get_enhanced_stats():
 def get_live_messages():
     """Get live messages from in-memory cache"""
     try:
-        # Check if we need to reset for a new day (only reloads on day change)
-        check_day_rollover()
+        # Reload from today's log file to stay in sync with bot writes
+        load_today_into_cache()
         
-        # Deduplicate by message id (prefer later entry) and sort by created_at
+        # Deduplicate by (id, type) to prevent double-counting from file + POST
         seen = {}
         for msg in live_messages_cache:
-            key = msg.get('id') or msg.get('message_id') or id(msg)
-            # For edits/deletes of the same message id, keep all (different types)
-            msg_type = msg.get('type', 'create')
-            seen[(key, msg_type)] = msg
+            key = msg.get('id') or msg.get('message_id')
+            if key:
+                msg_type = msg.get('type', 'create')
+                seen[(key, msg_type)] = msg
+            else:
+                # No id — use a unique fallback so it isn't dropped
+                seen[id(msg)] = msg
         deduped = list(seen.values())
         deduped.sort(key=lambda m: m.get('created_at', ''))
         
