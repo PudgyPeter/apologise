@@ -5,6 +5,7 @@ Provides REST endpoints to access bot logs, search, and manage custom logs
 import os
 import json
 import pathlib
+import requests as http_requests
 from datetime import datetime
 from flask import Flask, jsonify, request, send_file, send_from_directory
 from flask_cors import CORS
@@ -330,6 +331,104 @@ def add_live_message():
 def health():
     """Health check endpoint"""
     return jsonify({"status": "ok", "timestamp": datetime.utcnow().isoformat()})
+
+# --- DISCORD REST API PROXY ---
+DISCORD_API = "https://discord.com/api/v10"
+DISCORD_TOKEN = os.getenv("TOKEN")
+
+def discord_headers():
+    return {"Authorization": f"Bot {DISCORD_TOKEN}", "Content-Type": "application/json"}
+
+@app.route('/api/discord/guilds', methods=['GET'])
+def get_discord_guilds():
+    """Get bot's guilds"""
+    try:
+        r = http_requests.get(f"{DISCORD_API}/users/@me/guilds", headers=discord_headers())
+        r.raise_for_status()
+        guilds = [{"id": g["id"], "name": g["name"], "icon": g.get("icon")} for g in r.json()]
+        return jsonify(guilds)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/discord/channels/<guild_id>', methods=['GET'])
+def get_discord_channels(guild_id):
+    """Get text channels for a guild from Discord API (with IDs)"""
+    try:
+        r = http_requests.get(f"{DISCORD_API}/guilds/{guild_id}/channels", headers=discord_headers())
+        r.raise_for_status()
+        # Filter to text channels (type 0) and voice channels are excluded
+        text_channels = [
+            {"id": c["id"], "name": c["name"], "type": c["type"], "position": c.get("position", 0), "parent_id": c.get("parent_id")}
+            for c in r.json() if c["type"] in (0, 5, 15)  # text, announcement, forum
+        ]
+        text_channels.sort(key=lambda c: c["position"])
+        return jsonify(text_channels)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/discord/send', methods=['POST'])
+def discord_send_message():
+    """Send a message to a Discord channel"""
+    try:
+        data = request.get_json()
+        channel_id = data.get("channel_id")
+        content = data.get("content", "").strip()
+        reply_to = data.get("reply_to")  # optional message ID to reply to
+        if not channel_id or not content:
+            return jsonify({"error": "channel_id and content are required"}), 400
+        payload = {"content": content}
+        if reply_to:
+            payload["message_reference"] = {"message_id": str(reply_to)}
+        r = http_requests.post(
+            f"{DISCORD_API}/channels/{channel_id}/messages",
+            headers=discord_headers(),
+            json=payload
+        )
+        r.raise_for_status()
+        return jsonify(r.json()), 200
+    except http_requests.exceptions.HTTPError as e:
+        err_body = e.response.json() if e.response else str(e)
+        return jsonify({"error": err_body}), e.response.status_code if e.response else 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/discord/react', methods=['POST'])
+def discord_react():
+    """Add a reaction to a message"""
+    try:
+        data = request.get_json()
+        channel_id = data.get("channel_id")
+        message_id = data.get("message_id")
+        emoji = data.get("emoji")  # URL-encoded emoji e.g. '%F0%9F%91%8D' or 'name:id' for custom
+        if not all([channel_id, message_id, emoji]):
+            return jsonify({"error": "channel_id, message_id, and emoji are required"}), 400
+        r = http_requests.put(
+            f"{DISCORD_API}/channels/{channel_id}/messages/{message_id}/reactions/{emoji}/@me",
+            headers=discord_headers()
+        )
+        r.raise_for_status()
+        return jsonify({"status": "ok"}), 200
+    except http_requests.exceptions.HTTPError as e:
+        err_body = e.response.json() if e.response else str(e)
+        return jsonify({"error": err_body}), e.response.status_code if e.response else 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/discord/messages/<channel_id>/<message_id>', methods=['DELETE'])
+def discord_delete_message(channel_id, message_id):
+    """Delete a message from a Discord channel"""
+    try:
+        r = http_requests.delete(
+            f"{DISCORD_API}/channels/{channel_id}/messages/{message_id}",
+            headers=discord_headers()
+        )
+        r.raise_for_status()
+        return jsonify({"status": "deleted"}), 200
+    except http_requests.exceptions.HTTPError as e:
+        err_body = e.response.json() if e.response else str(e)
+        return jsonify({"error": err_body}), e.response.status_code if e.response else 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # --- HOSPITALITY STATS ENDPOINTS ---
 HOSPITALITY_STATS_FILE = BASE_LOG_DIR / "hospitality_stats.json"

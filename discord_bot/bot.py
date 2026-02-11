@@ -212,6 +212,7 @@ async def build_entry_from_message(message: discord.Message):
         "created_at_iso": message.created_at.isoformat(),
         "readable_time": message.created_at.strftime("%Y-%m-%d %H:%M:%S UTC"),
         "channel": message.channel.name,
+        "channel_id": message.channel.id,
         "attachments": attachments,
         "reactions": {},  # emoji -> {"count": int, "users": [names]}
         "reply_preview": reply_preview
@@ -488,6 +489,7 @@ async def on_message_edit(before, after):
         "role_color": role_color,
         "content": after.content,
         "channel": before.channel.name,
+        "channel_id": before.channel.id,
         "created_at": datetime.utcnow().isoformat(),
         "readable_time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
         "type": "edit",
@@ -578,6 +580,7 @@ async def on_message_delete(message):
         "role_color": role_color,
         "content": message.content,
         "channel": message.channel.name,
+        "channel_id": message.channel.id,
         "created_at": datetime.utcnow().isoformat(),
         "readable_time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
         "type": "delete",

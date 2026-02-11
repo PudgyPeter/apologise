@@ -1008,3 +1008,153 @@ body, html {
 }
 
 .spin { animation: spin 1s linear infinite; }
+
+/* ---- Messages column (messages + input bar) ---- */
+.dc-messages-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* ---- Message Input Bar ---- */
+.dc-input-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px 16px;
+  flex-shrink: 0;
+}
+
+.dc-input-channel-selector {
+  display: flex;
+  align-items: center;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.dc-input-channel-select {
+  appearance: none;
+  background: #383a40;
+  border: none;
+  color: #b5bac1;
+  font-size: 13px;
+  padding: 10px 28px 10px 12px;
+  border-radius: 8px 0 0 8px;
+  cursor: pointer;
+  font-family: inherit;
+  outline: none;
+  min-width: 130px;
+}
+.dc-input-channel-select:hover { background: #404249; }
+.dc-input-channel-select option { background: #2b2d31; color: #dbdee1; }
+
+.dc-input-arrow {
+  position: absolute;
+  right: 8px;
+  color: #949ba4;
+  pointer-events: none;
+}
+
+.dc-input-field {
+  flex: 1;
+  background: #383a40;
+  border: none;
+  color: #dbdee1;
+  font-size: 15px;
+  padding: 10px 16px;
+  border-radius: 0;
+  outline: none;
+  font-family: inherit;
+  min-width: 0;
+}
+.dc-input-field::placeholder { color: #6d6f78; }
+.dc-input-field:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.dc-input-send {
+  background: #383a40;
+  border: none;
+  color: #949ba4;
+  cursor: pointer;
+  padding: 10px 14px;
+  border-radius: 0 8px 8px 0;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s, background 0.15s;
+}
+.dc-input-send:hover:not(:disabled) { color: #5865f2; background: #404249; }
+.dc-input-send:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ---- Message Hover Actions ---- */
+.dc-msg-actions {
+  position: absolute;
+  top: -16px;
+  right: 16px;
+  display: flex;
+  gap: 0;
+  background: #2b2d31;
+  border: 1px solid #1e1f22;
+  border-radius: 4px;
+  overflow: hidden;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.dc-msg-actions button {
+  background: transparent;
+  border: none;
+  color: #b5bac1;
+  cursor: pointer;
+  padding: 6px 8px;
+  display: flex;
+  align-items: center;
+  transition: background 0.1s, color 0.1s;
+}
+.dc-msg-actions button:hover { background: rgba(79,84,92,0.4); color: #f2f3f5; }
+.dc-msg-actions .dc-action-delete:hover { background: rgba(242,63,67,0.15); color: #f23f43; }
+
+/* ---- Emoji Picker ---- */
+.dc-emoji-picker {
+  position: absolute;
+  top: -16px;
+  right: 80px;
+  background: #2b2d31;
+  border: 1px solid #1e1f22;
+  border-radius: 8px;
+  padding: 8px;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+  z-index: 20;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  animation: dcFadeIn 0.1s ease-out;
+}
+
+@keyframes dcFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.dc-emoji-btn {
+  background: transparent;
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background 0.1s;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+}
+.dc-emoji-btn:hover { background: rgba(79,84,92,0.4); }
+
+@media (max-width: 768px) {
+  .dc-input-channel-selector { display: none; }
+  .dc-input-field { border-radius: 8px 0 0 8px; }
+  .dc-emoji-picker { right: 16px; grid-template-columns: repeat(4, 1fr); }
+}

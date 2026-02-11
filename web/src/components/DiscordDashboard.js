@@ -19,7 +19,10 @@ import {
   Trash,
   Clock,
   TrendingUp,
-  AtSign
+  AtSign,
+  Send,
+  SmilePlus,
+  ChevronRight
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -47,11 +50,24 @@ function DiscordDashboard({ darkMode, setDarkMode }) {
   const [showUserPanel, setShowUserPanel] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
+  // Discord API interaction
+  const [discordChannels, setDiscordChannels] = useState([]); // channels with IDs from Discord API
+  const [, setGuildId] = useState(null);
+  const [channelMap, setChannelMap] = useState({}); // name -> id mapping
+  const [messageInput, setMessageInput] = useState('');
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const [sendChannelId, setSendChannelId] = useState(null); // override channel for sending
+  const [emojiPickerMsg, setEmojiPickerMsg] = useState(null); // {channelId, messageId} for open picker
+  const [hoveredMsgId, setHoveredMsgId] = useState(null);
+
   // Mobile
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const messagesEndRef = useRef(null);
   const logEntriesRef = useRef(null);
+  const messageInputRef = useRef(null);
+
+  const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥', '👀', '💀', '✅', '❌', '🎉', '💯', '🤔', '😍', '👎', '⭐'];
 
   // --- Data Fetching ---
   useEffect(() => {
@@ -61,12 +77,21 @@ function DiscordDashboard({ darkMode, setDarkMode }) {
     fetchChannels();
     fetchUsers();
     fetchEnhancedStats();
+    fetchDiscordGuilds();
 
     const interval = setInterval(() => {
       if (activeTab === 'live') fetchLiveMessages();
     }, 5000);
     return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
+
+  // Build channel name -> ID map when discordChannels change
+  useEffect(() => {
+    const map = {};
+    discordChannels.forEach(ch => { map[ch.name] = ch.id; });
+    setChannelMap(map);
+  }, [discordChannels]);
 
   useEffect(() => {
     if (activeTab === 'live' && autoScroll && messagesEndRef.current) {
@@ -114,6 +139,83 @@ function DiscordDashboard({ darkMode, setDarkMode }) {
       const res = await axios.get('/api/users');
       setUsers(res.data);
     } catch (e) { console.error('Error fetching users:', e); }
+  };
+
+  const fetchDiscordGuilds = async () => {
+    try {
+      const res = await axios.get('/api/discord/guilds');
+      if (res.data.length > 0) {
+        const gid = res.data[0].id;
+        setGuildId(gid);
+        fetchDiscordChannels(gid);
+      }
+    } catch (e) { console.error('Error fetching guilds:', e); }
+  };
+
+  const fetchDiscordChannels = async (gid) => {
+    try {
+      const res = await axios.get(`/api/discord/channels/${gid}`);
+      setDiscordChannels(res.data);
+    } catch (e) { console.error('Error fetching discord channels:', e); }
+  };
+
+  // --- Discord Actions ---
+  const getChannelId = (entry) => {
+    // Use channel_id from entry if available, otherwise look up by name
+    if (entry.channel_id) return String(entry.channel_id);
+    return channelMap[entry.channel] || null;
+  };
+
+  const handleSendMessage = async () => {
+    const content = messageInput.trim();
+    if (!content || sendingMessage) return;
+    // Determine target channel
+    const targetId = sendChannelId || (selectedChannel ? channelMap[selectedChannel] : null);
+    if (!targetId) {
+      alert('Select a channel to send messages to');
+      return;
+    }
+    setSendingMessage(true);
+    try {
+      await axios.post('/api/discord/send', { channel_id: targetId, content });
+      setMessageInput('');
+      // Refresh live feed after a short delay to pick up the new message
+      setTimeout(fetchLiveMessages, 1500);
+    } catch (e) {
+      console.error('Error sending message:', e);
+      alert('Failed to send message: ' + (e.response?.data?.error || e.message));
+    } finally { setSendingMessage(false); }
+  };
+
+  const handleReact = async (entry, emoji) => {
+    const chId = getChannelId(entry);
+    const msgId = entry.message_id || entry.id;
+    if (!chId || !msgId) { console.error('Missing channel or message ID for reaction'); return; }
+    setEmojiPickerMsg(null);
+    try {
+      await axios.post('/api/discord/react', {
+        channel_id: chId,
+        message_id: String(msgId),
+        emoji: encodeURIComponent(emoji)
+      });
+    } catch (e) {
+      console.error('Error adding reaction:', e);
+      alert('Failed to react: ' + (e.response?.data?.error || e.message));
+    }
+  };
+
+  const handleDeleteMessage = async (entry) => {
+    const chId = getChannelId(entry);
+    const msgId = entry.message_id || entry.id;
+    if (!chId || !msgId) { console.error('Missing channel or message ID for delete'); return; }
+    if (!window.confirm('Delete this message from Discord?')) return;
+    try {
+      await axios.delete(`/api/discord/messages/${chId}/${msgId}`);
+      setTimeout(fetchLiveMessages, 1000);
+    } catch (e) {
+      console.error('Error deleting message:', e);
+      alert('Failed to delete: ' + (e.response?.data?.error || e.message));
+    }
   };
 
   const fetchLogContent = async (filename) => {
@@ -242,8 +344,39 @@ function DiscordDashboard({ darkMode, setDarkMode }) {
       </span>
     ) : null;
 
+    const msgUniqueId = entry.message_id || entry.id || index;
+    const isHovered = hoveredMsgId === msgUniqueId;
+    const pickerOpen = emojiPickerMsg && emojiPickerMsg.msgId === msgUniqueId;
+    const canInteract = activeTab === 'live' && entry.type === 'create';
+
     return (
-      <div key={index} className={`dc-message ${isGroupStart ? 'dc-group-start' : ''} ${entry.type === 'delete' ? 'dc-deleted' : ''}`}>
+      <div 
+        key={index} 
+        className={`dc-message ${isGroupStart ? 'dc-group-start' : ''} ${entry.type === 'delete' ? 'dc-deleted' : ''}`}
+        onMouseEnter={() => setHoveredMsgId(msgUniqueId)}
+        onMouseLeave={() => { setHoveredMsgId(null); if (pickerOpen) setEmojiPickerMsg(null); }}
+      >
+        {/* Hover action buttons */}
+        {isHovered && canInteract && (
+          <div className="dc-msg-actions">
+            <button title="Add Reaction" onClick={() => setEmojiPickerMsg(pickerOpen ? null : { msgId: msgUniqueId, entry })}>
+              <SmilePlus size={16} />
+            </button>
+            <button title="Delete Message" className="dc-action-delete" onClick={() => handleDeleteMessage(entry)}>
+              <Trash size={16} />
+            </button>
+          </div>
+        )}
+
+        {/* Emoji picker popup */}
+        {pickerOpen && (
+          <div className="dc-emoji-picker">
+            {QUICK_EMOJIS.map(em => (
+              <button key={em} className="dc-emoji-btn" onClick={() => handleReact(entry, em)}>{em}</button>
+            ))}
+          </div>
+        )}
+
         {isGroupStart ? (
           <div className="dc-msg-avatar">
             <img src={getAvatarUrl(entry)} alt="" />
@@ -303,7 +436,7 @@ function DiscordDashboard({ darkMode, setDarkMode }) {
           {entry.reactions && Object.keys(entry.reactions).length > 0 && (
             <div className="dc-reactions">
               {Object.entries(entry.reactions).map(([emoji, info]) => (
-                <div key={emoji} className="dc-reaction">
+                <div key={emoji} className="dc-reaction" onClick={() => handleReact(entry, emoji)}>
                   <span>{emoji}</span>
                   <span className="dc-reaction-count">{info.count}</span>
                 </div>
@@ -557,43 +690,86 @@ function DiscordDashboard({ darkMode, setDarkMode }) {
 
         {/* Content */}
         <div className="dc-content-wrapper">
-          <div className="dc-messages-area" ref={logEntriesRef} onScroll={handleScroll}>
-            {loading && (
-              <div className="dc-loading"><RefreshCw className="spin" size={24} /> Loading...</div>
-            )}
+          <div className="dc-messages-col">
+            <div className="dc-messages-area" ref={logEntriesRef} onScroll={handleScroll}>
+              {loading && (
+                <div className="dc-loading"><RefreshCw className="spin" size={24} /> Loading...</div>
+              )}
 
-            {activeTab === 'stats' && renderStatsPanel()}
+              {activeTab === 'stats' && renderStatsPanel()}
 
-            {activeTab !== 'stats' && !loading && displayedData.length > 0 && (
-              <>
-                {hasMore && <div className="dc-loading-more">Scroll up for older messages...</div>}
-                <div className="dc-msg-count">{allFiltered.length.toLocaleString()} messages {hasActiveFilters ? '(filtered)' : ''}</div>
-                {displayedData.map((entry, i) => renderMessage(entry, i))}
-                <div ref={messagesEndRef} />
-              </>
-            )}
+              {activeTab !== 'stats' && !loading && displayedData.length > 0 && (
+                <>
+                  {hasMore && <div className="dc-loading-more">Scroll up for older messages...</div>}
+                  <div className="dc-msg-count">{allFiltered.length.toLocaleString()} messages {hasActiveFilters ? '(filtered)' : ''}</div>
+                  {displayedData.map((entry, i) => renderMessage(entry, i))}
+                  <div ref={messagesEndRef} />
+                </>
+              )}
 
-            {activeTab !== 'stats' && !loading && displayedData.length === 0 && (
-              <div className="dc-empty">
-                {activeTab === 'logs' && !selectedLog ? (
-                  <>
-                    <FileText size={48} />
-                    <h3>Select a log file</h3>
-                    <p>Choose a log from the sidebar to view messages</p>
-                  </>
-                ) : activeTab === 'search' && !searchTerm ? (
-                  <>
-                    <Search size={48} />
-                    <h3>Search messages</h3>
-                    <p>Enter a search term in the top bar</p>
-                  </>
-                ) : (
-                  <>
-                    <MessageSquare size={48} />
-                    <h3>No messages</h3>
-                    <p>{hasActiveFilters ? 'No messages match your filters' : 'Waiting for messages...'}</p>
-                  </>
-                )}
+              {activeTab !== 'stats' && !loading && displayedData.length === 0 && (
+                <div className="dc-empty">
+                  {activeTab === 'logs' && !selectedLog ? (
+                    <>
+                      <FileText size={48} />
+                      <h3>Select a log file</h3>
+                      <p>Choose a log from the sidebar to view messages</p>
+                    </>
+                  ) : activeTab === 'search' && !searchTerm ? (
+                    <>
+                      <Search size={48} />
+                      <h3>Search messages</h3>
+                      <p>Enter a search term in the top bar</p>
+                    </>
+                  ) : (
+                    <>
+                      <MessageSquare size={48} />
+                      <h3>No messages</h3>
+                      <p>{hasActiveFilters ? 'No messages match your filters' : 'Waiting for messages...'}</p>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Message Input Bar */}
+            {activeTab === 'live' && (
+              <div className="dc-input-bar">
+                <div className="dc-input-channel-selector">
+                  <select
+                    value={sendChannelId || (selectedChannel ? channelMap[selectedChannel] || '' : '')}
+                    onChange={(e) => setSendChannelId(e.target.value || null)}
+                    className="dc-input-channel-select"
+                  >
+                    <option value="">
+                      {selectedChannel ? `#${selectedChannel}` : '— pick channel —'}
+                    </option>
+                    {discordChannels.map(ch => (
+                      <option key={ch.id} value={ch.id}>#{ch.name}</option>
+                    ))}
+                  </select>
+                  <ChevronRight size={14} className="dc-input-arrow" />
+                </div>
+                <input
+                  ref={messageInputRef}
+                  className="dc-input-field"
+                  placeholder={
+                    (sendChannelId || (selectedChannel && channelMap[selectedChannel]))
+                      ? `Message #${sendChannelId ? (discordChannels.find(c => c.id === sendChannelId)?.name || 'channel') : selectedChannel}`
+                      : 'Select a channel to send messages...'
+                  }
+                  value={messageInput}
+                  onChange={(e) => setMessageInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
+                  disabled={sendingMessage || (!sendChannelId && !(selectedChannel && channelMap[selectedChannel]))}
+                />
+                <button
+                  className="dc-input-send"
+                  onClick={handleSendMessage}
+                  disabled={sendingMessage || !messageInput.trim() || (!sendChannelId && !(selectedChannel && channelMap[selectedChannel]))}
+                >
+                  <Send size={18} />
+                </button>
               </div>
             )}
           </div>
