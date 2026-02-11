@@ -90,12 +90,19 @@ function DiscordDashboard({ darkMode, setDarkMode }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
-  // Build channel name -> ID map when discordChannels change
+  // Build channel name -> ID map from Discord API + message data
   useEffect(() => {
     const map = {};
+    // First pass: extract channel_id from actual messages (reliable fallback)
+    [...liveMessages, ...historyMessages].forEach(msg => {
+      if (msg.channel && msg.channel_id) {
+        map[msg.channel] = String(msg.channel_id);
+      }
+    });
+    // Second pass: Discord API channels override (authoritative)
     discordChannels.forEach(ch => { map[ch.name] = ch.id; });
     setChannelMap(map);
-  }, [discordChannels]);
+  }, [discordChannels, liveMessages, historyMessages]);
 
   useEffect(() => {
     if (activeTab === 'live' && autoScroll && messagesEndRef.current) {
