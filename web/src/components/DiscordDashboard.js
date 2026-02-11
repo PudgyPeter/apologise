@@ -736,89 +736,91 @@ function DiscordDashboard({ darkMode, setDarkMode }) {
         <div className="dc-content-wrapper">
           <div className="dc-messages-col">
             <div className="dc-messages-area" ref={logEntriesRef} onScroll={handleScroll}>
-              {loading && (
-                <div className="dc-loading"><RefreshCw className="spin" size={24} /> Loading...</div>
-              )}
+              <div className="dc-messages-spacer">
+                {loading && (
+                  <div className="dc-loading"><RefreshCw className="spin" size={24} /> Loading...</div>
+                )}
 
-              {activeTab === 'stats' && renderStatsPanel()}
+                {activeTab === 'stats' && renderStatsPanel()}
 
-              {activeTab !== 'stats' && !loading && displayedData.length > 0 && (
-                <>
-                  {loadingHistory && <div className="dc-loading-more"><RefreshCw className="spin" size={14} /> Loading older messages...</div>}
-                  {!loadingHistory && hasMore && <div className="dc-loading-more">Scroll up for older messages...</div>}
-                  {!loadingHistory && !hasMore && activeTab === 'live' && historyHasMore && <div className="dc-loading-more">Scroll up to load previous days...</div>}
-                  {!loadingHistory && !hasMore && !historyHasMore && activeTab === 'live' && <div className="dc-loading-more" style={{color:'#4e5058'}}>Beginning of message history</div>}
-                  <div className="dc-msg-count">{allFiltered.length.toLocaleString()} messages {hasActiveFilters ? '(filtered)' : ''}</div>
-                  {displayedData.map((entry, i) => renderMessage(entry, i))}
-                  <div ref={messagesEndRef} />
-                </>
-              )}
+                {activeTab !== 'stats' && !loading && displayedData.length > 0 && (
+                  <>
+                    {loadingHistory && <div className="dc-loading-more"><RefreshCw className="spin" size={14} /> Loading older messages...</div>}
+                    {!loadingHistory && hasMore && <div className="dc-loading-more">Scroll up for older messages...</div>}
+                    {!loadingHistory && !hasMore && activeTab === 'live' && historyHasMore && <div className="dc-loading-more">Scroll up to load previous days...</div>}
+                    {!loadingHistory && !hasMore && !historyHasMore && activeTab === 'live' && <div className="dc-loading-more" style={{color:'#4e5058'}}>Beginning of message history</div>}
+                    <div className="dc-msg-count">{allFiltered.length.toLocaleString()} messages {hasActiveFilters ? '(filtered)' : ''}</div>
+                    {displayedData.map((entry, i) => renderMessage(entry, i))}
+                    <div ref={messagesEndRef} />
+                  </>
+                )}
 
-              {activeTab !== 'stats' && !loading && displayedData.length === 0 && (
-                <div className="dc-empty">
-                  {activeTab === 'logs' && !selectedLog ? (
-                    <>
-                      <FileText size={48} />
-                      <h3>Select a log file</h3>
-                      <p>Choose a log from the sidebar to view messages</p>
-                    </>
-                  ) : activeTab === 'search' && !searchTerm ? (
-                    <>
-                      <Search size={48} />
-                      <h3>Search messages</h3>
-                      <p>Enter a search term in the top bar</p>
-                    </>
-                  ) : (
-                    <>
-                      <MessageSquare size={48} />
-                      <h3>No messages</h3>
-                      <p>{hasActiveFilters ? 'No messages match your filters' : 'Waiting for messages...'}</p>
-                    </>
-                  )}
-                </div>
-              )}
+                {activeTab !== 'stats' && !loading && displayedData.length === 0 && (
+                  <div className="dc-empty">
+                    {activeTab === 'logs' && !selectedLog ? (
+                      <>
+                        <FileText size={48} />
+                        <h3>Select a log file</h3>
+                        <p>Choose a log from the sidebar to view messages</p>
+                      </>
+                    ) : activeTab === 'search' && !searchTerm ? (
+                      <>
+                        <Search size={48} />
+                        <h3>Search messages</h3>
+                        <p>Enter a search term in the top bar</p>
+                      </>
+                    ) : (
+                      <>
+                        <MessageSquare size={48} />
+                        <h3>No messages</h3>
+                        <p>{hasActiveFilters ? 'No messages match your filters' : 'Waiting for messages...'}</p>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Message Input Bar */}
-            {activeTab === 'live' && (
-              <div className="dc-input-bar">
-                <div className="dc-input-channel-selector">
-                  <select
-                    value={sendChannelId || (selectedChannel ? channelMap[selectedChannel] || '' : '')}
-                    onChange={(e) => setSendChannelId(e.target.value || null)}
-                    className="dc-input-channel-select"
+            {activeTab === 'live' && (() => {
+              const resolvedId = sendChannelId || channelMap[selectedChannel] || null;
+              const resolvedName = resolvedId
+                ? (discordChannels.find(c => c.id === resolvedId)?.name || selectedChannel || 'channel')
+                : null;
+              return (
+                <div className="dc-input-bar">
+                  <div className="dc-input-channel-selector">
+                    <select
+                      value={resolvedId || ''}
+                      onChange={(e) => setSendChannelId(e.target.value || null)}
+                      className="dc-input-channel-select"
+                    >
+                      <option value="">{selectedChannel ? `#${selectedChannel}` : '— pick channel —'}</option>
+                      {discordChannels.map(ch => (
+                        <option key={ch.id} value={ch.id}>#{ch.name}</option>
+                      ))}
+                    </select>
+                    <ChevronRight size={14} className="dc-input-arrow" />
+                  </div>
+                  <input
+                    ref={messageInputRef}
+                    className="dc-input-field"
+                    placeholder={resolvedName ? `Message #${resolvedName}` : 'Select a channel to send messages...'}
+                    value={messageInput}
+                    onChange={(e) => setMessageInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
+                    disabled={sendingMessage || !resolvedId}
+                  />
+                  <button
+                    className="dc-input-send"
+                    onClick={handleSendMessage}
+                    disabled={sendingMessage || !messageInput.trim() || !resolvedId}
                   >
-                    <option value="">
-                      {selectedChannel ? `#${selectedChannel}` : '— pick channel —'}
-                    </option>
-                    {discordChannels.map(ch => (
-                      <option key={ch.id} value={ch.id}>#{ch.name}</option>
-                    ))}
-                  </select>
-                  <ChevronRight size={14} className="dc-input-arrow" />
+                    <Send size={18} />
+                  </button>
                 </div>
-                <input
-                  ref={messageInputRef}
-                  className="dc-input-field"
-                  placeholder={
-                    (sendChannelId || (selectedChannel && channelMap[selectedChannel]))
-                      ? `Message #${sendChannelId ? (discordChannels.find(c => c.id === sendChannelId)?.name || 'channel') : selectedChannel}`
-                      : 'Select a channel to send messages...'
-                  }
-                  value={messageInput}
-                  onChange={(e) => setMessageInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
-                  disabled={sendingMessage || (!sendChannelId && !(selectedChannel && channelMap[selectedChannel]))}
-                />
-                <button
-                  className="dc-input-send"
-                  onClick={handleSendMessage}
-                  disabled={sendingMessage || !messageInput.trim() || (!sendChannelId && !(selectedChannel && channelMap[selectedChannel]))}
-                >
-                  <Send size={18} />
-                </button>
-              </div>
-            )}
+              );
+            })()}
           </div>
 
           {/* User Panel */}

@@ -411,10 +411,17 @@ body, html {
 /* Messages area */
 .dc-messages-area {
   flex: 1;
-  overflow-y: auto;
+  overflow-y: scroll;
   overflow-x: hidden;
   padding: 16px 0;
   scroll-behavior: smooth;
+}
+
+.dc-messages-area > .dc-messages-spacer {
+  min-height: calc(100% + 1px);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
 }
 
 .dc-messages-area::-webkit-scrollbar { width: 8px; }
