@@ -407,6 +407,7 @@ async def on_message(message: discord.Message):
     
     entry = {
         "id": message.id,
+        "message_id": message.id,
         "author": str(message.author),
         "author_display": message.author.display_name,
         "author_id": message.author.id,
@@ -414,9 +415,11 @@ async def on_message(message: discord.Message):
         "role_color": role_color,
         "content": message.content,
         "channel": message.channel.name,
+        "channel_id": message.channel.id,
         "created_at": message.created_at.isoformat(),
         "readable_time": message.created_at.strftime("%Y-%m-%d %H:%M:%S UTC"),
         "type": "create",
+        "attachments": [a.url for a in message.attachments],
     }
     append_log(entry)
     await add_message_to_group(message)
@@ -482,6 +485,7 @@ async def on_message_edit(before, after):
     
     entry = {
         "id": before.id,
+        "message_id": before.id,
         "author": str(before.author),
         "author_display": before.author.display_name,
         "author_id": before.author.id,
@@ -573,6 +577,7 @@ async def on_message_delete(message):
 
     entry = {
         "id": message.id,
+        "message_id": message.id,
         "author": str(message.author),
         "author_display": message.author.display_name,
         "author_id": message.author.id,
@@ -584,6 +589,7 @@ async def on_message_delete(message):
         "created_at": datetime.utcnow().isoformat(),
         "readable_time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
         "type": "delete",
+        "attachments": [att.url for att in message.attachments] if message.attachments else [],
     }
     append_log(entry)
     

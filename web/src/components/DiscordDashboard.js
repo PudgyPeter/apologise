@@ -38,7 +38,7 @@ function DiscordDashboard({ darkMode, setDarkMode }) {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('live');
   const [liveMessages, setLiveMessages] = useState([]);
-  const [autoScroll] = useState(true);
+  const isNearBottomRef = useRef(true);
   const [displayCount, setDisplayCount] = useState(100);
   const [historyMessages, setHistoryMessages] = useState([]); // older messages from previous days
   const [historyBeforeDate, setHistoryBeforeDate] = useState(null); // cursor for next history fetch
@@ -105,10 +105,10 @@ function DiscordDashboard({ darkMode, setDarkMode }) {
   }, [discordChannels, liveMessages, historyMessages]);
 
   useEffect(() => {
-    if (activeTab === 'live' && autoScroll && messagesEndRef.current) {
+    if (activeTab === 'live' && isNearBottomRef.current && messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [liveMessages, activeTab, autoScroll]);
+  }, [liveMessages, activeTab]);
 
   const fetchLogs = async () => {
     try {
@@ -354,25 +354,32 @@ function DiscordDashboard({ darkMode, setDarkMode }) {
   const displayedData = allFiltered.slice(Math.max(0, allFiltered.length - displayCount));
   const hasMore = allFiltered.length > displayCount;
 
+  const scrollRestorationRef = useRef(null);
+
+  // After React re-renders with new content, restore scroll position so it doesn't jump
+  useEffect(() => {
+    if (scrollRestorationRef.current && logEntriesRef.current) {
+      const el = logEntriesRef.current;
+      const { prevScrollHeight, prevScrollTop } = scrollRestorationRef.current;
+      el.scrollTop = el.scrollHeight - prevScrollHeight + prevScrollTop;
+      scrollRestorationRef.current = null;
+    }
+  }, [displayedData.length, historyMessages.length]);
+
   const handleScroll = (e) => {
-    const { scrollTop } = e.target;
     const el = e.target;
+    const { scrollTop, scrollHeight, clientHeight } = el;
+    // Track if user is near the bottom (within 150px)
+    isNearBottomRef.current = scrollHeight - scrollTop - clientHeight < 150;
     // Load more displayed messages when scrolling near the top
     if (scrollTop < 300 && !loading) {
       if (hasMore) {
-        const prevHeight = el.scrollHeight;
+        scrollRestorationRef.current = { prevScrollHeight: el.scrollHeight, prevScrollTop: scrollTop };
         setDisplayCount(prev => prev + 50);
-        requestAnimationFrame(() => {
-          el.scrollTop = el.scrollHeight - prevHeight + scrollTop;
-        });
       } else if (activeTab === 'live' && historyHasMore && !loadingHistory) {
-        // All current messages displayed — fetch older days
-        const prevHeight = el.scrollHeight;
+        scrollRestorationRef.current = { prevScrollHeight: el.scrollHeight, prevScrollTop: scrollTop };
         fetchHistory().then(() => {
           setDisplayCount(prev => prev + 200);
-          requestAnimationFrame(() => {
-            if (el) el.scrollTop = el.scrollHeight - prevHeight + scrollTop;
-          });
         });
       }
     }

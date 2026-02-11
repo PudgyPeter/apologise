@@ -98,6 +98,16 @@ def fuzzy_contains(text, keyword, tolerance=2):
     keyword = (keyword or "").lower()
     return keyword in text
 
+def check_day_rollover():
+    """Check if a new day started and reload cache if so"""
+    global last_reset_date
+    from datetime import datetime, timedelta
+    local_time = datetime.utcnow() + timedelta(hours=LOCAL_TIMEZONE_OFFSET)
+    today = local_time.date()
+    if last_reset_date and last_reset_date != today:
+        print(f"[🔄 CACHE] New day detected (local time), reloading cache")
+        load_today_into_cache()
+
 # Load today's log into cache on startup
 load_today_into_cache()
 
@@ -298,12 +308,21 @@ def get_enhanced_stats():
 def get_live_messages():
     """Get live messages from in-memory cache"""
     try:
-        # Check if we need to reset for a new day
-        load_today_into_cache()
+        # Check if we need to reset for a new day (only reloads on day change)
+        check_day_rollover()
+        
+        # Deduplicate by message id (prefer later entry) and sort by created_at
+        seen = {}
+        for msg in live_messages_cache:
+            key = msg.get('id') or msg.get('message_id') or id(msg)
+            # For edits/deletes of the same message id, keep all (different types)
+            msg_type = msg.get('type', 'create')
+            seen[(key, msg_type)] = msg
+        deduped = list(seen.values())
+        deduped.sort(key=lambda m: m.get('created_at', ''))
         
         # Return last 500 messages to avoid overwhelming the browser
-        recent_messages = live_messages_cache[-500:]
-        print(f"[🔴 API] Returning {len(recent_messages)} of {len(live_messages_cache)} cached messages")
+        recent_messages = deduped[-500:]
         return jsonify(recent_messages)
     except Exception as e:
         print(f"[💥 API] Error in get_live_messages: {e}")
