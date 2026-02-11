@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { 
   FileText, 
@@ -20,16 +19,11 @@ import {
   Trash,
   Clock,
   TrendingUp,
-  AtSign,
-  Coffee,
-  Moon,
-  ExternalLink
+  AtSign
 } from 'lucide-react';
 import { format } from 'date-fns';
 
 function DiscordDashboard({ darkMode, setDarkMode }) {
-  const navigate = useNavigate();
-
   // --- State ---
   const [logs, setLogs] = useState([]);
   const [selectedLog, setSelectedLog] = useState(null);
@@ -473,22 +467,6 @@ function DiscordDashboard({ darkMode, setDarkMode }) {
               ))}
             </div>
 
-            {/* Cross-app navigation */}
-            <div className="dc-section-header">
-              <span>OTHER APPS</span>
-            </div>
-            <div className="dc-channel-list dc-app-nav">
-              <button className="dc-nav-item" onClick={() => navigate('/hospitality')}>
-                <Coffee size={18} />
-                <span>Hospitality Stats</span>
-                <ExternalLink size={12} style={{marginLeft:'auto', opacity:0.5}} />
-              </button>
-              <button className="dc-nav-item" onClick={() => navigate('/dreams')}>
-                <Moon size={18} />
-                <span>Dream Journal</span>
-                <ExternalLink size={12} style={{marginLeft:'auto', opacity:0.5}} />
-              </button>
-            </div>
           </>
         )}
       </div>

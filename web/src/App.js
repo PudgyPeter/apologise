@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import DiscordDashboard from './components/DiscordDashboard';
-import HospitalityStats from './components/HospitalityStats';
-import DreamJournal from './components/DreamJournal';
 import './App.css';
 
 function App() {
@@ -11,7 +9,6 @@ function App() {
     return saved === 'true';
   });
 
-  // Persist dark mode preference
   useEffect(() => {
     localStorage.setItem('darkMode', darkMode);
   }, [darkMode]);
@@ -19,25 +16,10 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* Discord Dashboard - Main route */}
         <Route 
           path="/" 
           element={<DiscordDashboard darkMode={darkMode} setDarkMode={setDarkMode} />} 
         />
-        
-        {/* Hospitality Stats - Separate route */}
-        <Route 
-          path="/hospitality" 
-          element={<HospitalityStats darkMode={darkMode} setDarkMode={setDarkMode} />} 
-        />
-        
-        {/* Dream Journal - Separate route */}
-        <Route 
-          path="/dreams" 
-          element={<DreamJournal darkMode={darkMode} setDarkMode={setDarkMode} />} 
-        />
-        
-        {/* Redirect any unknown routes to home */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
