@@ -797,7 +797,7 @@ function DiscordDashboard({ darkMode, setDarkMode }) {
 
             {/* Message Input Bar */}
             {activeTab === 'live' && (() => {
-              const resolvedId = sendChannelId || channelMap[selectedChannel] || null;
+              const resolvedId = sendChannelId || channelMap[selectedChannel] || (selectedChannel ? discordChannels.find(c => c.name === selectedChannel)?.id : null) || null;
               const resolvedName = resolvedId
                 ? (discordChannels.find(c => c.id === resolvedId)?.name || selectedChannel || 'channel')
                 : null;
