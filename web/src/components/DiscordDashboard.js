@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { 
   FileText, 
@@ -103,6 +103,18 @@ function DiscordDashboard({ darkMode, setDarkMode }) {
     discordChannels.forEach(ch => { map[ch.name] = ch.id; });
     setChannelMap(map);
   }, [discordChannels, liveMessages, historyMessages]);
+
+  // Auto-sync sendChannelId when sidebar channel selection changes
+  useEffect(() => {
+    if (selectedChannel && discordChannels.length > 0) {
+      const match = discordChannels.find(c => c.name === selectedChannel);
+      if (match) {
+        setSendChannelId(match.id);
+      }
+    } else if (!selectedChannel) {
+      setSendChannelId(null);
+    }
+  }, [selectedChannel, discordChannels]);
 
   useEffect(() => {
     if (activeTab === 'live' && isNearBottomRef.current && messagesEndRef.current) {
@@ -356,8 +368,8 @@ function DiscordDashboard({ darkMode, setDarkMode }) {
 
   const scrollRestorationRef = useRef(null);
 
-  // After React re-renders with new content, restore scroll position so it doesn't jump
-  useEffect(() => {
+  // After React re-renders with new content, restore scroll position BEFORE browser paints
+  useLayoutEffect(() => {
     if (scrollRestorationRef.current && logEntriesRef.current) {
       const el = logEntriesRef.current;
       const { prevScrollHeight, prevScrollTop } = scrollRestorationRef.current;
