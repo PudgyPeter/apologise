@@ -211,6 +211,88 @@ def get_stats():
         "total_messages": total_messages
     })
 
+@app.route('/api/channels', methods=['GET'])
+def get_channels():
+    """Get list of all channels seen in logs"""
+    from collections import Counter
+    channel_counter = Counter()
+    for log_file in sorted(BASE_LOG_DIR.glob("logs_*.json")):
+        data = load_log(log_file)
+        for entry in data:
+            ch = entry.get("channel")
+            if ch:
+                channel_counter[ch] += 1
+    channels = [{"name": ch, "message_count": count} for ch, count in channel_counter.most_common()]
+    return jsonify(channels)
+
+@app.route('/api/users', methods=['GET'])
+def get_users():
+    """Get list of all users seen in logs"""
+    from collections import Counter
+    user_map = {}
+    for log_file in sorted(BASE_LOG_DIR.glob("logs_*.json")):
+        data = load_log(log_file)
+        for entry in data:
+            uid = str(entry.get("author_id", ""))
+            if uid and entry.get("type") == "create":
+                name = entry.get("author_display") or entry.get("author", "Unknown")
+                avatar = entry.get("avatar_url", "")
+                if uid not in user_map:
+                    user_map[uid] = {"id": uid, "name": name, "avatar_url": avatar, "count": 0}
+                user_map[uid]["count"] += 1
+                user_map[uid]["name"] = name
+                if avatar:
+                    user_map[uid]["avatar_url"] = avatar
+    users = sorted(user_map.values(), key=lambda x: x["count"], reverse=True)
+    return jsonify(users)
+
+@app.route('/api/stats/enhanced', methods=['GET'])
+def get_enhanced_stats():
+    """Get enhanced statistics for the dashboard"""
+    from collections import Counter
+    total_logs = len(list(BASE_LOG_DIR.glob("logs_*.json")))
+    custom_logs = len(list(BASE_LOG_DIR.glob("custom_*.json")))
+    total_messages = 0
+    total_edits = 0
+    total_deletes = 0
+    channel_counter = Counter()
+    user_counter = Counter()
+    hourly = Counter()
+    daily = Counter()
+    for log_file in sorted(BASE_LOG_DIR.glob("logs_*.json")):
+        data = load_log(log_file)
+        for entry in data:
+            t = entry.get("type", "create")
+            if t == "create":
+                total_messages += 1
+                user_counter[entry.get("author_display") or entry.get("author", "Unknown")] += 1
+                channel_counter[entry.get("channel", "unknown")] += 1
+                try:
+                    ts = datetime.fromisoformat(entry["created_at"])
+                    hourly[ts.hour] += 1
+                    daily[ts.strftime("%Y-%m-%d")] += 1
+                except:
+                    pass
+            elif t == "edit":
+                total_edits += 1
+            elif t == "delete":
+                total_deletes += 1
+    top_users = [{"name": n, "count": c} for n, c in user_counter.most_common(10)]
+    top_channels = [{"name": n, "count": c} for n, c in channel_counter.most_common(10)]
+    hourly_data = [{"hour": h, "count": hourly.get(h, 0)} for h in range(24)]
+    daily_data = [{"date": d, "count": c} for d, c in sorted(daily.items())[-30:]]
+    return jsonify({
+        "total_logs": total_logs,
+        "custom_logs": custom_logs,
+        "total_messages": total_messages,
+        "total_edits": total_edits,
+        "total_deletes": total_deletes,
+        "top_users": top_users,
+        "top_channels": top_channels,
+        "hourly_activity": hourly_data,
+        "daily_activity": daily_data,
+    })
+
 @app.route('/api/live', methods=['GET'])
 def get_live_messages():
     """Get live messages from in-memory cache"""

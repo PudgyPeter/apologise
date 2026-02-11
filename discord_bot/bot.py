@@ -464,6 +464,15 @@ async def on_message_edit(before, after):
     if before.content == after.content:
         return
     
+    # Populate editsnipe cache
+    last_edited[before.channel.id] = {
+        "author": str(before.author),
+        "before": before.content,
+        "after": after.content,
+        "avatar_url": before.author.display_avatar.url,
+        "timestamp": datetime.utcnow(),
+    }
+    
     # Get role color
     role_color = None
     if before.guild and isinstance(before.author, discord.Member):
@@ -551,6 +560,15 @@ async def on_message_delete(message):
         if message.author.top_role and message.author.top_role.color.value != 0:
             role_color = f"#{message.author.top_role.color.value:06x}"
     
+    # Populate snipe cache
+    last_deleted[message.channel.id] = {
+        "author": str(message.author),
+        "content": message.content,
+        "avatar_url": message.author.display_avatar.url,
+        "timestamp": datetime.utcnow(),
+        "attachments": [att.url for att in message.attachments] if message.attachments else [],
+    }
+
     entry = {
         "id": message.id,
         "author": str(message.author),
@@ -1094,6 +1112,201 @@ async def inviteme(ctx):
     # Discord allows up to 10 embeds per message
     for i in range(0, len(embeds), 10):
         await ctx.send(embeds=embeds[i:i+10])
+
+# --- SNIPE CACHES ---
+last_deleted = {}   # channel_id -> {"author": ..., "content": ..., "avatar_url": ..., "timestamp": ..., "attachments": []}
+last_edited = {}    # channel_id -> {"author": ..., "before": ..., "after": ..., "avatar_url": ..., "timestamp": ...}
+
+# --- SNIPE COMMAND ---
+@bot.command(name="snipe")
+async def snipe(ctx):
+    """Show the last deleted message in this channel."""
+    data = last_deleted.get(ctx.channel.id)
+    if not data:
+        await ctx.send("Nothing to snipe here.")
+        return
+    embed = discord.Embed(
+        description=data["content"] or "(no text)",
+        color=discord.Color.red(),
+        timestamp=data["timestamp"]
+    )
+    embed.set_author(name=data["author"], icon_url=data.get("avatar_url"))
+    embed.set_footer(text=f"Deleted in #{ctx.channel.name}")
+    if data.get("attachments"):
+        embed.add_field(name="📎 Attachments", value="\n".join(data["attachments"]), inline=False)
+    await ctx.send(embed=embed)
+
+@bot.command(name="editsnipe")
+async def editsnipe(ctx):
+    """Show the last edited message's original content in this channel."""
+    data = last_edited.get(ctx.channel.id)
+    if not data:
+        await ctx.send("No recent edits to snipe here.")
+        return
+    embed = discord.Embed(color=discord.Color.gold(), timestamp=data["timestamp"])
+    embed.set_author(name=data["author"], icon_url=data.get("avatar_url"))
+    embed.add_field(name="Before", value=(data["before"] or "(no text)")[:1024], inline=False)
+    embed.add_field(name="After", value=(data["after"] or "(no text)")[:1024], inline=False)
+    embed.set_footer(text=f"Edited in #{ctx.channel.name}")
+    await ctx.send(embed=embed)
+
+# --- WHOIS COMMAND ---
+@bot.command(name="whois")
+async def whois(ctx, member: discord.Member = None):
+    """Show info about a user."""
+    member = member or ctx.author
+    roles = [r.mention for r in member.roles if r != ctx.guild.default_role]
+    embed = discord.Embed(color=member.top_role.color if member.top_role.color.value != 0 else discord.Color.blurple())
+    embed.set_author(name=str(member), icon_url=member.display_avatar.url)
+    embed.set_thumbnail(url=member.display_avatar.url)
+    embed.add_field(name="Display Name", value=member.display_name, inline=True)
+    embed.add_field(name="ID", value=str(member.id), inline=True)
+    embed.add_field(name="Bot", value="Yes" if member.bot else "No", inline=True)
+    embed.add_field(name="Created", value=member.created_at.strftime("%b %d, %Y"), inline=True)
+    embed.add_field(name="Joined", value=member.joined_at.strftime("%b %d, %Y") if member.joined_at else "Unknown", inline=True)
+    embed.add_field(name="Top Role", value=member.top_role.mention if member.top_role != ctx.guild.default_role else "None", inline=True)
+    if roles:
+        embed.add_field(name=f"Roles ({len(roles)})", value=" ".join(roles[:20]) if len(roles) <= 20 else " ".join(roles[:20]) + f" +{len(roles)-20} more", inline=False)
+    embed.set_footer(text=f"Requested by {ctx.author}")
+    await ctx.send(embed=embed)
+
+# --- AVATAR COMMAND ---
+@bot.command(name="avatar")
+async def avatar(ctx, member: discord.Member = None):
+    """Show a user's avatar in full resolution."""
+    member = member or ctx.author
+    embed = discord.Embed(title=f"{member.display_name}'s Avatar", color=member.top_role.color if member.top_role.color.value != 0 else discord.Color.blurple())
+    embed.set_image(url=member.display_avatar.with_size(1024).url)
+    embed.set_footer(text=f"Requested by {ctx.author}")
+    await ctx.send(embed=embed)
+
+# --- SERVERINFO COMMAND ---
+@bot.command(name="serverinfo")
+async def serverinfo(ctx):
+    """Show detailed server information."""
+    guild = ctx.guild
+    embed = discord.Embed(title=guild.name, color=discord.Color.blurple(), timestamp=datetime.utcnow())
+    if guild.icon:
+        embed.set_thumbnail(url=guild.icon.url)
+    embed.add_field(name="Owner", value=str(guild.owner), inline=True)
+    embed.add_field(name="Members", value=str(guild.member_count), inline=True)
+    embed.add_field(name="Roles", value=str(len(guild.roles)), inline=True)
+    embed.add_field(name="Text Channels", value=str(len(guild.text_channels)), inline=True)
+    embed.add_field(name="Voice Channels", value=str(len(guild.voice_channels)), inline=True)
+    embed.add_field(name="Boost Level", value=str(guild.premium_tier), inline=True)
+    embed.add_field(name="Boosts", value=str(guild.premium_subscription_count or 0), inline=True)
+    embed.add_field(name="Created", value=guild.created_at.strftime("%b %d, %Y"), inline=True)
+    embed.add_field(name="Verification", value=str(guild.verification_level).title(), inline=True)
+    embed.set_footer(text=f"ID: {guild.id}")
+    await ctx.send(embed=embed)
+
+# --- TOP / LEADERBOARD COMMAND ---
+@bot.command(name="top")
+async def top_users(ctx, period: str = "today"):
+    """Show most active users. Usage: !top [today|week|all]"""
+    from collections import Counter
+    counter = Counter()
+    if period == "all":
+        log_files = sorted(BASE_LOG_DIR.glob("logs_*.json"))
+    elif period == "week":
+        log_files = sorted(BASE_LOG_DIR.glob("logs_*.json"))[-7:]
+    else:
+        log_files = [get_daily_log_path()]
+    for lf in log_files:
+        if lf.exists():
+            data = load_log(lf)
+            for entry in data:
+                if entry.get("type") == "create":
+                    counter[entry.get("author_display") or entry.get("author", "Unknown")] += 1
+    if not counter:
+        await ctx.send(f"No messages found for period: `{period}`")
+        return
+    top10 = counter.most_common(10)
+    embed = discord.Embed(title=f"🏆 Most Active Users ({period.title()})", color=discord.Color.gold())
+    desc = []
+    medals = ["🥇", "🥈", "🥉"]
+    for i, (name, count) in enumerate(top10):
+        prefix = medals[i] if i < 3 else f"**{i+1}.**"
+        desc.append(f"{prefix} **{name}** — {count} messages")
+    embed.description = "\n".join(desc)
+    embed.set_footer(text=f"Requested by {ctx.author}")
+    await ctx.send(embed=embed)
+
+# --- STATS COMMAND ---
+@bot.command(name="stats")
+async def stats_cmd(ctx, target: str = None, *, name: str = None):
+    """Show stats. Usage: !stats [@user] or !stats channel [#channel]"""
+    from collections import Counter, defaultdict
+    if target == "channel":
+        channel = ctx.channel
+        if name:
+            for ch in ctx.guild.text_channels:
+                if ch.name == name.strip("#").lower() or str(ch.id) == name.strip("<>#"):
+                    channel = ch
+                    break
+        counter = Counter()
+        hourly = Counter()
+        total = 0
+        for lf in sorted(BASE_LOG_DIR.glob("logs_*.json")):
+            data = load_log(lf)
+            for entry in data:
+                if entry.get("channel") == channel.name and entry.get("type") == "create":
+                    total += 1
+                    author = entry.get("author_display") or entry.get("author", "Unknown")
+                    counter[author] += 1
+                    try:
+                        ts = datetime.fromisoformat(entry["created_at"])
+                        hourly[ts.hour] += 1
+                    except:
+                        pass
+        embed = discord.Embed(title=f"📊 #{channel.name} Stats", color=discord.Color.blurple())
+        embed.add_field(name="Total Messages", value=str(total), inline=True)
+        if counter:
+            top5 = counter.most_common(5)
+            embed.add_field(name="Top Users", value="\n".join(f"**{n}** — {c}" for n, c in top5), inline=False)
+        if hourly:
+            peak = hourly.most_common(1)[0]
+            embed.add_field(name="Peak Hour (UTC)", value=f"{peak[0]:02d}:00 ({peak[1]} msgs)", inline=True)
+        await ctx.send(embed=embed)
+        return
+
+    # User stats
+    member = ctx.author
+    if target:
+        for m in ctx.guild.members:
+            if target.lower() in str(m).lower() or target.lower() in m.display_name.lower() or target.strip("<@!>") == str(m.id):
+                member = m
+                break
+    counter = Counter()
+    total = 0
+    word_count = 0
+    channel_counter = Counter()
+    hourly = Counter()
+    for lf in sorted(BASE_LOG_DIR.glob("logs_*.json")):
+        data = load_log(lf)
+        for entry in data:
+            if str(entry.get("author_id")) == str(member.id) and entry.get("type") == "create":
+                total += 1
+                content = entry.get("content", "")
+                word_count += len(content.split())
+                channel_counter[entry.get("channel", "unknown")] += 1
+                try:
+                    ts = datetime.fromisoformat(entry["created_at"])
+                    hourly[ts.hour] += 1
+                except:
+                    pass
+    embed = discord.Embed(title=f"📊 {member.display_name}'s Stats", color=member.top_role.color if member.top_role.color.value != 0 else discord.Color.blurple())
+    embed.set_thumbnail(url=member.display_avatar.url)
+    embed.add_field(name="Total Messages", value=str(total), inline=True)
+    embed.add_field(name="Total Words", value=str(word_count), inline=True)
+    embed.add_field(name="Avg Words/Msg", value=str(round(word_count / total, 1) if total else 0), inline=True)
+    if channel_counter:
+        top3 = channel_counter.most_common(3)
+        embed.add_field(name="Top Channels", value="\n".join(f"#{n} — {c}" for n, c in top3), inline=False)
+    if hourly:
+        peak = hourly.most_common(1)[0]
+        embed.add_field(name="Peak Hour (UTC)", value=f"{peak[0]:02d}:00 ({peak[1]} msgs)", inline=True)
+    await ctx.send(embed=embed)
 
 # --- START BOT ---
 bot.run(TOKEN)
