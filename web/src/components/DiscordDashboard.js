@@ -40,6 +40,10 @@ function DiscordDashboard({ darkMode, setDarkMode }) {
   const [liveMessages, setLiveMessages] = useState([]);
   const [autoScroll] = useState(true);
   const [displayCount, setDisplayCount] = useState(100);
+  const [historyMessages, setHistoryMessages] = useState([]); // older messages from previous days
+  const [historyBeforeDate, setHistoryBeforeDate] = useState(null); // cursor for next history fetch
+  const [historyHasMore, setHistoryHasMore] = useState(true);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   // Discord-like features
   const [channels, setChannels] = useState([]);
@@ -124,7 +128,37 @@ function DiscordDashboard({ darkMode, setDarkMode }) {
     try {
       const res = await axios.get('/api/live');
       setLiveMessages(res.data);
+      // Set history cursor to today's date on first load so history fetches older days
+      if (!historyBeforeDate && res.data.length > 0) {
+        try {
+          const oldest = res.data[0];
+          const d = new Date(oldest.created_at);
+          // Use the date of the oldest message in the live feed as the starting cursor
+          const dateStr = d.toISOString().split('T')[0];
+          setHistoryBeforeDate(dateStr);
+        } catch { /* ignore */ }
+      }
     } catch (e) { console.error('Error fetching live messages:', e); }
+  };
+
+  const fetchHistory = async () => {
+    if (loadingHistory || !historyHasMore) return;
+    setLoadingHistory(true);
+    try {
+      const params = historyBeforeDate ? `?before_date=${historyBeforeDate}&limit=3` : '?limit=3';
+      const res = await axios.get(`/api/live/history${params}`);
+      const { messages, has_more, oldest_date } = res.data;
+      if (messages.length > 0) {
+        setHistoryMessages(prev => [...messages, ...prev]);
+      }
+      setHistoryHasMore(has_more);
+      if (oldest_date) {
+        setHistoryBeforeDate(oldest_date);
+      } else {
+        setHistoryHasMore(false);
+      }
+    } catch (e) { console.error('Error fetching history:', e); }
+    finally { setLoadingHistory(false); }
   };
 
   const fetchChannels = async () => {
@@ -290,10 +324,10 @@ function DiscordDashboard({ darkMode, setDarkMode }) {
   // --- Filtering ---
   const getDataForTab = useCallback(() => {
     if (activeTab === 'search') return searchResults;
-    if (activeTab === 'live') return liveMessages;
+    if (activeTab === 'live') return [...historyMessages, ...liveMessages];
     if (activeTab === 'stats') return [];
     return logContent;
-  }, [activeTab, searchResults, liveMessages, logContent]);
+  }, [activeTab, searchResults, liveMessages, historyMessages, logContent]);
 
   const filteredData = useCallback(() => {
     let data = getDataForTab();
@@ -315,15 +349,25 @@ function DiscordDashboard({ darkMode, setDarkMode }) {
 
   const handleScroll = (e) => {
     const { scrollTop } = e.target;
-    // Load older messages when scrolling near the top
-    if (scrollTop < 300 && hasMore && !loading) {
-      const el = e.target;
-      const prevHeight = el.scrollHeight;
-      setDisplayCount(prev => prev + 50);
-      // Preserve scroll position after prepending older messages
-      requestAnimationFrame(() => {
-        el.scrollTop = el.scrollHeight - prevHeight + scrollTop;
-      });
+    const el = e.target;
+    // Load more displayed messages when scrolling near the top
+    if (scrollTop < 300 && !loading) {
+      if (hasMore) {
+        const prevHeight = el.scrollHeight;
+        setDisplayCount(prev => prev + 50);
+        requestAnimationFrame(() => {
+          el.scrollTop = el.scrollHeight - prevHeight + scrollTop;
+        });
+      } else if (activeTab === 'live' && historyHasMore && !loadingHistory) {
+        // All current messages displayed — fetch older days
+        const prevHeight = el.scrollHeight;
+        fetchHistory().then(() => {
+          setDisplayCount(prev => prev + 200);
+          requestAnimationFrame(() => {
+            if (el) el.scrollTop = el.scrollHeight - prevHeight + scrollTop;
+          });
+        });
+      }
     }
   };
 
@@ -700,7 +744,10 @@ function DiscordDashboard({ darkMode, setDarkMode }) {
 
               {activeTab !== 'stats' && !loading && displayedData.length > 0 && (
                 <>
-                  {hasMore && <div className="dc-loading-more">Scroll up for older messages...</div>}
+                  {loadingHistory && <div className="dc-loading-more"><RefreshCw className="spin" size={14} /> Loading older messages...</div>}
+                  {!loadingHistory && hasMore && <div className="dc-loading-more">Scroll up for older messages...</div>}
+                  {!loadingHistory && !hasMore && activeTab === 'live' && historyHasMore && <div className="dc-loading-more">Scroll up to load previous days...</div>}
+                  {!loadingHistory && !hasMore && !historyHasMore && activeTab === 'live' && <div className="dc-loading-more" style={{color:'#4e5058'}}>Beginning of message history</div>}
                   <div className="dc-msg-count">{allFiltered.length.toLocaleString()} messages {hasActiveFilters ? '(filtered)' : ''}</div>
                   {displayedData.map((entry, i) => renderMessage(entry, i))}
                   <div ref={messagesEndRef} />

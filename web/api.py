@@ -309,6 +309,55 @@ def get_live_messages():
         print(f"[💥 API] Error in get_live_messages: {e}")
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/live/history', methods=['GET'])
+def get_live_history():
+    """Load older messages from previous day log files.
+    Query params:
+      before_date: YYYY-MM-DD — load logs from before this date (exclusive)
+      limit: max number of log files to load (default 3)
+    Returns messages sorted chronologically (oldest first).
+    """
+    from datetime import datetime as dt, timedelta
+    try:
+        before_date_str = request.args.get('before_date')
+        limit = int(request.args.get('limit', 3))
+        limit = min(limit, 10)  # cap at 10 files
+
+        # Get all log files sorted descending (newest first)
+        all_logs = sorted(BASE_LOG_DIR.glob("logs_*.json"), reverse=True)
+        
+        messages = []
+        files_loaded = 0
+        oldest_loaded_date = None
+        remaining_count = 0
+        for log_file in all_logs:
+            fname = log_file.stem  # logs_2025-11-23
+            try:
+                file_date_str = fname.replace("logs_", "")
+                if before_date_str and file_date_str >= before_date_str:
+                    continue  # skip — not older than cursor
+            except Exception:
+                continue
+
+            if files_loaded < limit:
+                data = load_log(log_file)
+                messages = data + messages  # prepend older messages
+                oldest_loaded_date = file_date_str
+                files_loaded += 1
+            else:
+                remaining_count += 1
+
+        print(f"[📜 HISTORY] Loaded {len(messages)} messages from {files_loaded} files before {before_date_str}, {remaining_count} older files remain")
+        return jsonify({
+            "messages": messages,
+            "files_loaded": files_loaded,
+            "has_more": remaining_count > 0,
+            "oldest_date": oldest_loaded_date
+        })
+    except Exception as e:
+        print(f"[💥 API] Error in get_live_history: {e}")
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/api/live', methods=['POST'])
 def add_live_message():
     """Receive live message from bot"""
